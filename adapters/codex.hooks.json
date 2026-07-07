@@ -1,0 +1,17 @@
+{
+  "_comment": "Template for Codex hooks (~/.codex/hooks.json). Codex's hooks schema changes across versions and strictly validates unknown fields — run the Codex CLI '/hooks' command to confirm the exact shape for your version, then adjust. The invariant is: point a command hook at capture.sh with a 'codex' source tag. Replace the path below with your absolute capture.sh path.",
+  "version": 1,
+  "hooks": {
+    "SessionStart": [{ "command": "~/.cursor/agent-monitor/scripts/capture.sh codex" }],
+    "UserPromptSubmit": [{ "command": "~/.cursor/agent-monitor/scripts/capture.sh codex" }],
+    "PreToolUse": [{ "command": "~/.cursor/agent-monitor/scripts/capture.sh codex" }],
+    "PostToolUse": [{ "command": "~/.cursor/agent-monitor/scripts/capture.sh codex" }],
+    "Stop": [{ "command": "~/.cursor/agent-monitor/scripts/capture.sh codex" }],
+    "PreCompact": [{ "command": "~/.cursor/agent-monitor/scripts/capture.sh codex" }],
+    "PostCompact": [{ "command": "~/.cursor/agent-monitor/scripts/capture.sh codex" }],
+    "SubagentStart": [{ "command": "~/.cursor/agent-monitor/scripts/capture.sh codex" }],
+    "SubagentStop": [{ "command": "~/.cursor/agent-monitor/scripts/capture.sh codex" }],
+    "ToolExecution": [{ "command": "~/.cursor/agent-monitor/scripts/capture.sh codex" }],
+    "TurnMetadata": [{ "command": "~/.cursor/agent-monitor/scripts/capture.sh codex" }]
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "_comment": "Merge this 'hooks' block into ~/.claude/settings.json. Replace CAP with the absolute path to capture.sh (e.g. /Users/<you>/.cursor/agent-monitor/scripts/capture.sh). The 'claude' arg tags events as _source=claude.",
+  "hooks": {
+    "SessionStart": [{ "hooks": [{ "type": "command", "command": "~/.cursor/agent-monitor/scripts/capture.sh claude" }] }],
+    "SessionEnd": [{ "hooks": [{ "type": "command", "command": "~/.cursor/agent-monitor/scripts/capture.sh claude" }] }],
+    "UserPromptSubmit": [{ "hooks": [{ "type": "command", "command": "~/.cursor/agent-monitor/scripts/capture.sh claude" }] }],
+    "PreToolUse": [{ "matcher": "", "hooks": [{ "type": "command", "command": "~/.cursor/agent-monitor/scripts/capture.sh claude" }] }],
+    "PostToolUse": [{ "matcher": "", "hooks": [{ "type": "command", "command": "~/.cursor/agent-monitor/scripts/capture.sh claude" }] }],
+    "PostToolUseFailure": [{ "matcher": "", "hooks": [{ "type": "command", "command": "~/.cursor/agent-monitor/scripts/capture.sh claude" }] }],
+    "Stop": [{ "hooks": [{ "type": "command", "command": "~/.cursor/agent-monitor/scripts/capture.sh claude" }] }],
+    "SubagentStop": [{ "hooks": [{ "type": "command", "command": "~/.cursor/agent-monitor/scripts/capture.sh claude" }] }],
+    "PreCompact": [{ "hooks": [{ "type": "command", "command": "~/.cursor/agent-monitor/scripts/capture.sh claude" }] }],
+    "Notification": [{ "hooks": [{ "type": "command", "command": "~/.cursor/agent-monitor/scripts/capture.sh claude" }] }]
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "hooks": {
+    "sessionStart": [{ "command": "./scripts/capture.sh" }],
+    "sessionEnd": [{ "command": "./scripts/capture.sh" }],
+    "stop": [{ "command": "./scripts/capture.sh" }],
+    "beforeSubmitPrompt": [{ "command": "./scripts/capture.sh" }],
+    "afterAgentResponse": [{ "command": "./scripts/capture.sh" }],
+    "afterAgentThought": [{ "command": "./scripts/capture.sh" }],
+    "preToolUse": [{ "command": "./scripts/capture.sh" }],
+    "postToolUse": [{ "command": "./scripts/capture.sh" }],
+    "postToolUseFailure": [{ "command": "./scripts/capture.sh" }],
+    "beforeShellExecution": [{ "command": "./scripts/capture.sh" }],
+    "afterShellExecution": [{ "command": "./scripts/capture.sh" }],
+    "beforeMCPExecution": [{ "command": "./scripts/capture.sh" }],
+    "afterMCPExecution": [{ "command": "./scripts/capture.sh" }],
+    "beforeReadFile": [{ "command": "./scripts/capture.sh" }],
+    "afterFileEdit": [{ "command": "./scripts/capture.sh" }],
+    "subagentStart": [{ "command": "./scripts/capture.sh" }],
+    "subagentStop": [{ "command": "./scripts/capture.sh" }],
+    "preCompact": [{ "command": "./scripts/capture.sh" }]
+  }
+}
