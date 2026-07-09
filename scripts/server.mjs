@@ -14,7 +14,12 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const OBS_DIR = path.join(os.homedir(), ".cursor", "observer");
 const EVENTS_FILE = path.join(OBS_DIR, "events.jsonl");
 const TX_DIR = path.join(OBS_DIR, "transcripts");
-const PANEL = path.join(__dirname, "..", "assets", "index.html");
+const ASSETS_DIR = path.join(__dirname, "..", "assets");
+const PANEL = path.join(ASSETS_DIR, "index.html");
+const STATIC_TYPES = {
+  ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8",
+  ".svg": "image/svg+xml", ".png": "image/png", ".woff": "font/woff", ".woff2": "font/woff2",
+};
 
 const HOST = process.env.OBSERVER_HOST || "127.0.0.1";
 const PORT = process.env.OBSERVER_PORT ? Number(process.env.OBSERVER_PORT) : 4517;
@@ -33,6 +38,39 @@ function readAllEvents() {
     }
     return out;
   } catch { return []; }
+}
+
+// Session identity must match the panel: conversation_id, else session_id.
+function sessionKeyOf(ev) {
+  return ev.conversation_id || ev.session_id || ((ev._source || "unknown") + ":no-session");
+}
+function safeName(v) { return String(v == null ? "" : v).replace(/[^a-zA-Z0-9._-]/g, "_"); }
+
+// Remove one session's events from the log (atomic rewrite) + its archived
+// transcript (best-effort). Returns number of event lines removed.
+function deleteSession(key) {
+  let removed = 0;
+  const txt = fs.readFileSync(EVENTS_FILE, "utf8");
+  const keep = [];
+  for (const line of txt.split("\n")) {
+    const s = line.trim();
+    if (!s) continue;
+    let ev; try { ev = JSON.parse(s); } catch { keep.push(s); continue; }
+    if (sessionKeyOf(ev) === key) removed++; else keep.push(s);
+  }
+  const tmp = EVENTS_FILE + ".tmp";
+  fs.writeFileSync(tmp, keep.length ? keep.join("\n") + "\n" : "");
+  fs.renameSync(tmp, EVENTS_FILE);
+  try { offset = fs.statSync(EVENTS_FILE).size; } catch { offset = 0; }
+  try { const f = path.join(TX_DIR, safeName(key) + ".jsonl"); if (fs.existsSync(f)) fs.unlinkSync(f); } catch {}
+  try { const d = path.join(TX_DIR, safeName(key)); if (fs.existsSync(d)) fs.rmSync(d, { recursive: true, force: true }); } catch {}
+  return removed;
+}
+
+function clearHistory() {
+  fs.writeFileSync(EVENTS_FILE, "");
+  offset = 0;
+  try { for (const f of fs.readdirSync(TX_DIR)) fs.rmSync(path.join(TX_DIR, f), { recursive: true, force: true }); } catch {}
 }
 
 function broadcast(line) {
@@ -84,6 +122,16 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  // vendored static assets (e.g. /gsap.min.js), restricted to the assets dir
+  if (/^\/[\w.-]+\.(js|css|svg|png|woff2?)$/.test(u.pathname)) {
+    const resolved = path.resolve(ASSETS_DIR, "." + u.pathname);
+    if (resolved === ASSETS_DIR || resolved.startsWith(ASSETS_DIR + path.sep)) {
+      try { return send(res, 200, STATIC_TYPES[path.extname(resolved)] || "application/octet-stream", fs.readFileSync(resolved)); }
+      catch { return send(res, 404, "text/plain", "not found"); }
+    }
+    return send(res, 400, "text/plain", "bad path");
+  }
+
   if (u.pathname === "/api/events") {
     return send(res, 200, "application/json; charset=utf-8", JSON.stringify(readAllEvents()));
   }
@@ -97,6 +145,19 @@ const server = http.createServer((req, res) => {
     try { send(res, 200, "text/plain; charset=utf-8", fs.readFileSync(resolved, "utf8")); }
     catch { send(res, 404, "text/plain", "not found"); }
     return;
+  }
+
+  // destructive history management (localhost-only; server binds 127.0.0.1)
+  if (u.pathname === "/api/session/delete" && req.method === "POST") {
+    const key = u.searchParams.get("key") || "";
+    if (!key) return send(res, 400, "text/plain", "missing key");
+    try { const removed = deleteSession(key); return send(res, 200, "application/json", JSON.stringify({ removed })); }
+    catch (e) { return send(res, 500, "text/plain", "delete failed: " + e.message); }
+  }
+
+  if (u.pathname === "/api/history/clear" && req.method === "POST") {
+    try { clearHistory(); return send(res, 200, "application/json", JSON.stringify({ ok: true })); }
+    catch (e) { return send(res, 500, "text/plain", "clear failed: " + e.message); }
   }
 
   if (u.pathname === "/stream") {

@@ -66,7 +66,17 @@ async function main() {
   ev._event = ev.hook_event_name || ev._event || "unknown";
   // Source agent tag, passed as the first CLI arg by the hook command
   // (e.g. "cursor", "claude", "codex", "workbuddy"). Enables multi-engine views.
-  ev._source = process.argv[2] || ev._source || "unknown";
+  const argSource = process.argv[2];
+  ev._source = argSource || ev._source || "unknown";
+
+  // Cross-fire guard. Some hosts run hooks registered for OTHER agents too:
+  // Cursor executes the hooks in ~/.claude/settings.json, so the SAME Cursor
+  // event is captured twice — once as "cursor", once as "claude". The payload
+  // still identifies its real host (Cursor events carry cursor_version). If we
+  // were invoked under a non-cursor tag but the payload is a Cursor event, the
+  // "cursor" hook already recorded it — skip to avoid a duplicate line. Genuine
+  // Claude Code / Codex / WorkBuddy events lack cursor_version and are kept.
+  if (ev.cursor_version && argSource && argSource !== "cursor") { allow(); process.exit(0); }
 
   try {
     fs.mkdirSync(OBS_DIR, { recursive: true });
