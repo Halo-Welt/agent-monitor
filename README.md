@@ -78,13 +78,6 @@ Every agent streams into the same panel, tagged and colored by source. See
 - **Follow** auto-scrolls to newest events; scroll up to pause, scroll to bottom to resume
 - Click any node for a rich detail view (prose, terminal output, file diffs, tool I/O, subagent stats) with a raw-JSON fallback
 
-## Optional: in-editor sidebar
-
-[`extension/`](extension/) is a Cursor/VSCode extension that renders the same
-panel in a webview sidebar (reads the same `events.jsonl`, no browser needed).
-Build a `.vsix` with `npm install && npm run package` inside `extension/`, then
-install it from VSIX. See [`extension/README.md`](extension/README.md).
-
 ## Data & privacy
 
 All data stays local under `~/.cursor/observer/`. This log can contain **file
