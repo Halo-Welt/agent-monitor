@@ -19,9 +19,10 @@
     --c-prompt:#2563eb; --c-response:#1a7f37; --c-thought:#6d5bd0; --c-tool:#9a6700;
     --c-shell:#c0392b; --c-mcp:#1b7c83; --c-file:#a83d7a; --c-subagent:#b45309; --c-lifecycle:#6e7781;
     --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;
-    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --sans:"PingFang SC","PingFang TC",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Helvetica,Arial,sans-serif;
   }
   * { box-sizing:border-box; }
+  button, input, select, textarea { font-family:var(--sans); }
   html,body { height:100%; }
   body {
     margin:0; color:var(--fg); background:var(--bg); font:13px/1.5 var(--sans);
@@ -44,7 +45,7 @@
   .spacer { flex:1; }
   .pill { display:inline-flex; align-items:center; gap:6px; background:var(--panel-3); border:1px solid var(--border);
           border-radius:var(--radius-sm); padding:3px 9px; color:var(--muted); font-size:11px; font-variant-numeric:tabular-nums;
-          font-family:var(--mono); font-weight:500; }
+          font-family:var(--sans); font-weight:500; }
   .dot { width:6px; height:6px; border-radius:50%; display:inline-block; }
   .dot.on { background:var(--ok); }
   .dot.off { background:var(--faint); }
@@ -86,7 +87,7 @@
     padding:5px 9px; font-size:12px; color:var(--fg); cursor:pointer; transition:border-color .12s, box-shadow .12s; }
   .dd-btn:hover { border-color:#d0d5dc; }
   .dd-btn .flabel { margin:0; }
-  .dd-val { color:var(--muted); font-variant-numeric:tabular-nums; font-family:var(--mono); font-size:11px; }
+  .dd-val { color:var(--muted); font-variant-numeric:tabular-nums; font-family:var(--sans); font-size:11px; }
   .dd-caret { color:var(--faint); font-size:9px; transition:transform .15s; }
   .dropdown.open .dd-btn { border-color:var(--accent); box-shadow:var(--ring); }
   .dropdown.open .dd-caret { transform:rotate(180deg); }
@@ -135,15 +136,25 @@
   details.session > summary { padding:10px 12px; cursor:pointer; list-style:none; display:flex; align-items:center; gap:9px; font-weight:600; }
   details.session > summary::-webkit-details-marker { display:none; }
   details.session > summary:hover { background:var(--panel-3); }
-  .sess-id { font-family:var(--mono); font-size:12px; color:var(--fg); letter-spacing:-0.02em; }
-  .sess-model { color:var(--muted); font-weight:400; font-size:11px; font-family:var(--mono); }
+  .sess-id { font-family:var(--sans); font-weight:600; font-size:12px; color:var(--fg); letter-spacing:-0.02em; }
+  .sess-model { color:var(--muted); font-weight:400; font-size:11px; font-family:var(--sans); }
   .src-badge { font-size:10px; font-weight:650; letter-spacing:.15px; padding:2px 7px; border-radius:4px; color:#fff;
     text-transform:lowercase; flex-shrink:0; }
-  details.turn { margin:0 10px 8px; border:1px solid var(--border-soft); border-radius:var(--radius-sm); background:var(--panel-3); overflow:hidden; }
-  details.turn > summary { padding:7px 10px; cursor:pointer; list-style:none; color:var(--muted); font-size:12px; display:flex; align-items:center; gap:8px; }
-  details.turn > summary::-webkit-details-marker { display:none; }
-  details.turn > summary:hover { background:var(--panel-2); }
+  .turn { margin:0 8px 4px; padding:4px 0 2px; }
+  .turn + .turn { border-top:1px solid var(--border-soft); }
   .turn-body { padding:4px 5px 5px; }
+  .steps { margin:3px 4px; border:1px dashed var(--border); border-radius:var(--radius-sm); background:var(--panel-3); overflow:hidden; }
+  .steps > summary { padding:6px 9px 6px 26px; cursor:pointer; list-style:none; display:flex; align-items:center; gap:8px; position:relative; }
+  .steps > summary::-webkit-details-marker { display:none; }
+  .steps > summary::before { content:"▸"; position:absolute; left:11px; color:var(--faint); font-size:9px; }
+  .steps[open] > summary::before { content:"▾"; }
+  .steps > summary:hover { background:var(--panel-2); }
+  .steps-count { font-size:11.5px; font-weight:600; color:var(--fg); }
+  .steps-cats { font-size:11px; color:var(--faint); text-transform:lowercase; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .steps-body { padding:2px 4px 4px; }
+  .node.start { border-left:2px solid var(--c-prompt); }
+  .node.end { border-left:2px solid var(--c-response); }
+  .node.start.sel, .node.end.sel { border-left-color:var(--accent); }
   .node { display:flex; align-items:center; gap:9px; padding:6px 8px; margin:1px 3px; border-radius:var(--radius-sm); cursor:pointer;
           border:1px solid transparent; position:relative; transition:background .1s ease, border-color .1s ease; }
   .node:hover { background:var(--panel-2); }
@@ -154,7 +165,7 @@
   .tag { font-size:10px; letter-spacing:.15px; padding:1px 6px; border-radius:4px; font-weight:650; flex-shrink:0; text-transform:lowercase;
          border:1px solid transparent; }
   .label { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--fg); font-weight:450; }
-  .meta { color:var(--faint); font:11px/1 var(--mono); flex-shrink:0; font-variant-numeric:tabular-nums; }
+  .meta { color:var(--faint); font:11px/1 var(--sans); flex-shrink:0; font-variant-numeric:tabular-nums; }
   .st { width:6px; height:6px; border-radius:50%; flex-shrink:0; }
   .st.ok{ background:var(--ok);} .st.fail{ background:var(--fail);} .st.run{ background:var(--run);}
   .tl { position:relative; padding-left:18px; }
@@ -164,13 +175,13 @@
   .tlrow.sel { background:var(--accent-soft); }
   .tlrow::before { content:""; position:absolute; left:-16px; width:6px; height:6px; border-radius:50%; background:var(--panel); border:1.5px solid var(--border); }
   .tlrow.sel::before { border-color:var(--accent); background:var(--accent); }
-  .time { color:var(--faint); font:11px/1 var(--mono); font-variant-numeric:tabular-nums; flex-shrink:0; }
+  .time { color:var(--faint); font:11px/1 var(--sans); font-variant-numeric:tabular-nums; flex-shrink:0; }
 
   /* ---------------- detail inspector ---------------- */
   .d-section { margin-bottom:14px; }
   .d-title { font-size:10px; text-transform:uppercase; letter-spacing:.65px; color:var(--faint); margin:0 0 7px; display:flex; align-items:center; gap:7px; font-weight:650; }
   .kv { display:grid; grid-template-columns:auto 1fr; gap:4px 12px; font-size:12px; }
-  .kv .k { color:var(--muted); font-family:var(--mono); font-size:11px; white-space:nowrap; }
+  .kv .k { color:var(--muted); font-family:var(--sans); font-size:11px; white-space:nowrap; }
   .kv .v { color:var(--fg); word-break:break-word; }
   .prose { background:var(--panel-3); border:1px solid var(--border-soft); border-radius:var(--radius-sm); padding:11px 12px; white-space:pre-wrap;
            word-break:break-word; font-size:13px; line-height:1.6; }
@@ -196,14 +207,14 @@
   .st-run { background:rgba(154,103,0,.13); color:var(--run); }
   .d-link { color:var(--accent); text-decoration:none; font-size:12px; cursor:pointer; font-weight:550; }
   .d-link:hover { text-decoration:underline; }
-  .ev-sep { color:var(--faint); font-size:11px; margin:10px 0 4px; font-family:var(--mono); }
+  .ev-sep { color:var(--faint); font-size:11px; margin:10px 0 4px; font-family:var(--sans); }
   .hooksec .ev-sep { color:var(--muted); font-weight:600; margin-top:14px; }
   .hookev { background:var(--panel-3); border:1px solid var(--border-soft); border-radius:var(--radius-sm); padding:10px 12px; margin:5px 0 0;
     font:11.5px/1.55 var(--mono); color:#48515c; white-space:pre-wrap; word-break:break-word; overflow:auto; max-height:300px; }
 
   /* ---------------- history view ---------------- */
   .hist-bar { display:flex; align-items:center; gap:10px; padding:2px 4px 12px; }
-  .hist-count { color:var(--muted); font-size:12px; font-variant-numeric:tabular-nums; font-family:var(--mono); }
+  .hist-count { color:var(--muted); font-size:12px; font-variant-numeric:tabular-nums; font-family:var(--sans); }
   .hbtn { border:1px solid var(--border); background:var(--panel); color:var(--muted); border-radius:var(--radius-sm); padding:4px 10px;
     font-size:11px; font-weight:600; cursor:pointer; transition:background .12s, color .12s, border-color .12s; }
   .hbtn:hover { background:var(--panel-2); color:var(--fg); }
@@ -215,12 +226,12 @@
   .hist-card.sel { border-color:var(--accent); box-shadow:var(--ring); }
   .hist-card.pinned { border-left:2px solid var(--accent); }
   .hist-head { display:flex; align-items:center; gap:9px; margin-bottom:6px; }
-  .hist-id { font-family:var(--mono); font-size:12px; font-weight:650; color:var(--fg); }
-  .hist-model { color:var(--muted); font-size:11px; font-family:var(--mono); }
+  .hist-id { font-family:var(--sans); font-size:12px; font-weight:650; color:var(--fg); }
+  .hist-model { color:var(--muted); font-size:11px; font-family:var(--sans); }
   .hist-pin { color:var(--accent); font-size:12px; }
-  .hist-when { color:var(--faint); font:11px/1 var(--mono); font-variant-numeric:tabular-nums; }
+  .hist-when { color:var(--faint); font:11px/1 var(--sans); font-variant-numeric:tabular-nums; }
   .hist-title { font-size:13.5px; font-weight:600; color:var(--fg); margin-bottom:4px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .hist-meta { color:var(--muted); font:11px/1 var(--mono); margin-bottom:4px; font-variant-numeric:tabular-nums; }
+  .hist-meta { color:var(--muted); font:11px/1 var(--sans); margin-bottom:4px; font-variant-numeric:tabular-nums; }
   .hist-reply { color:var(--faint); font-size:12px; margin-bottom:10px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .hist-acts { display:flex; gap:6px; flex-wrap:wrap; }
   .hist-hidden { margin-top:6px; }
@@ -483,7 +494,8 @@ function render(){
     const rows=[]; for(const S of sessions.values()) for(const n of S.nodes.values()) for(const ev of n.evs) rows.push(ev);
     rows.sort((a,b)=> new Date(a._ts)-new Date(b._ts));
     const wrap=document.createElement("div"); wrap.className="tl";
-    for(const ev of rows) wrap.appendChild(tlRow(ev));
+    let lastSrc=null;
+    for(const ev of rows){ const s=srcOf(ev); wrap.appendChild(tlRow(ev, s!==lastSrc)); lastSrc=s; }
     frag.appendChild(wrap);
   } else {
     for(const S of sessions.values()) frag.appendChild(treeSession(S));
@@ -493,14 +505,16 @@ function render(){
   if(atBottom) list.scrollTop = list.scrollHeight; else list.scrollTop = prevTop;
 }
 
-function tlRow(ev){
+function tlRow(ev, showSrc){
   const row=document.createElement("div"); row.className="tlrow";
   const k=(ev.conversation_id||"")+"::ev::"+ev._ts+"::"+ev._event; if(selectedKey===k) row.classList.add("sel");
   row.setAttribute("data-anim-key", k);
   const c=catOf(ev);
   const time=document.createElement("span"); time.className="time"; time.textContent=timeOf(ev._ts);
   const lab=document.createElement("span"); lab.className="label"; lab.textContent=summarize(ev);
-  row.append(time,srcBadge(srcOf(ev)),tag(c),lab);
+  row.append(time);
+  if(showSrc) row.append(srcBadge(srcOf(ev)));   // only when the source changes — one badge per run, not per row
+  row.append(tag(c),lab);
   row.onclick=()=>{ selectedKey=k; showDetail([ev], c); render(); };
   return row;
 }
@@ -520,17 +534,32 @@ function treeSession(S){
   for(const [g,nodes] of turns){
     nodes.sort((a,b)=> new Date(a.firstTs)-new Date(b.firstTs));
     if(g==="—"){ const body=document.createElement("div"); body.className="turn-body"; for(const n of nodes) body.appendChild(nodeEl(n)); d.appendChild(body); continue; }
-    const td=document.createElement("details"); td.className="turn"; td.open=true;
-    const ts=document.createElement("summary");
-    const promptNode=nodes.find(n=>n.cat==="prompt");
-    const tt=tag("lifecycle","turn "+g.slice(0,6));
-    const tl=document.createElement("span"); tl.className="label"; tl.textContent=promptNode? clip(nodeLabel(promptNode),70):"";
-    ts.append(tt,tl); td.appendChild(ts);
-    const body=document.createElement("div"); body.className="turn-body";
-    for(const n of nodes) body.appendChild(nodeEl(n));
-    td.appendChild(body); d.appendChild(td);
+    d.appendChild(turnBlock(nodes));
   }
   return d;
+}
+
+// A turn reads as a conversation: the user prompt is the entry point, the final
+// response is the end, and everything the agent did in between collapses away.
+function turnBlock(nodes){
+  const wrap=document.createElement("div"); wrap.className="turn";
+  const prompt=nodes.find(n=>n.cat==="prompt");
+  let response=null; for(const n of nodes){ if(n.cat==="response") response=n; }
+  const middle=nodes.filter(n=> n!==prompt && n!==response);
+  if(prompt){ const el=nodeEl(prompt); el.classList.add("start"); wrap.appendChild(el); }
+  if(middle.length){
+    const st=document.createElement("details"); st.className="steps";
+    const sm=document.createElement("summary");
+    const cats=[...new Set(middle.map(n=>n.cat))];
+    const cnt=elp("steps-count", middle.length+(middle.length===1?" step":" steps"));
+    const cs=elp("steps-cats", cats.join(" · "));
+    sm.append(cnt, cs); st.appendChild(sm);
+    const b=document.createElement("div"); b.className="steps-body";
+    for(const n of middle) b.appendChild(nodeEl(n));
+    st.appendChild(b); wrap.appendChild(st);
+  }
+  if(response){ const el=nodeEl(response); el.classList.add("end"); wrap.appendChild(el); }
+  return wrap;
 }
 
 function nodeEl(node){
@@ -578,10 +607,46 @@ function hintBlock(){
 function section(title, cat){ const s=elp("d-section"); const h=elp("d-title"); if(cat) h.appendChild(tag(cat)); const sp=document.createElement("span"); sp.textContent=title; h.appendChild(sp); s.appendChild(h); return s; }
 function kvBlock(pairs){
   const g=elp("kv");
-  for(const [k,v] of pairs){ if(v==null||v==="") continue; g.appendChild(elp("k",k)); const vv=elp("v"); vv.textContent=(typeof v==="object")?JSON.stringify(v):String(v); g.appendChild(vv); }
+  for(const [k,v] of pairs){ if(v==null||v==="") continue; g.appendChild(elp("k",k)); const vv=elp("v"); vv.textContent=(typeof v==="object")?prettyText(v):String(v); g.appendChild(vv); }
   return g;
 }
-function codeBlock(val, cls){ const c=elp(cls||"code"); c.textContent=(typeof val==="object")?JSON.stringify(val,null,2):String(val); return c; }
+// Readable, escape-free rendering of captured values. JSON.stringify shows
+// nested strings with \" and \n which is painful to read in the panel, so we
+// print a YAML-ish view where string values keep their real newlines/quotes.
+function prettyLines(val, indent){
+  const pad="  ".repeat(indent);
+  if(val===null||val===undefined) return [pad+"null"];
+  const t=typeof val;
+  if(t==="number"||t==="boolean") return [pad+String(val)];
+  if(t==="string") return val.split("\n").map(p=>pad+p);
+  if(Array.isArray(val)){
+    if(!val.length) return [pad+"[]"];
+    const lines=[];
+    val.forEach(item=>{
+      if(item&&typeof item==="object"){ lines.push(pad+"-"); prettyLines(item,indent+1).forEach(l=>lines.push(l)); }
+      else { const sub=prettyLines(item,indent+1); lines.push(pad+"- "+sub[0].trimStart()); for(let i=1;i<sub.length;i++) lines.push(sub[i]); }
+    });
+    return lines;
+  }
+  const keys=Object.keys(val);
+  if(!keys.length) return [pad+"{}"];
+  const lines=[];
+  keys.forEach(k=>{
+    const v=val[k], t2=typeof v;
+    if(v===null||v===undefined||t2==="number"||t2==="boolean"){ lines.push(pad+k+": "+String(v===undefined?null:v)); }
+    else if(t2==="string"){
+      if(v.indexOf("\n")>=0){ lines.push(pad+k+":"); v.split("\n").forEach(p=>lines.push("  ".repeat(indent+1)+p)); }
+      else lines.push(pad+k+": "+v);
+    } else {
+      const sub=prettyLines(v,indent+1);
+      if(sub.length===1&&(sub[0].trim()==="[]"||sub[0].trim()==="{}")) lines.push(pad+k+": "+sub[0].trim());
+      else { lines.push(pad+k+":"); sub.forEach(l=>lines.push(l)); }
+    }
+  });
+  return lines;
+}
+function prettyText(val){ if(typeof val!=="object"||val===null) return String(val); return prettyLines(val,0).join("\n"); }
+function codeBlock(val, cls){ const c=elp(cls||"code"); c.textContent=prettyText(val); return c; }
 function diffBlock(text){
   const wrap=elp("diff");
   for(const line of String(text).split("\n")){
@@ -617,7 +682,7 @@ function renderRich(evs, cat, opts){
     out.appendChild(s);
     const term=elp("term");
     if(cmd!=null){ const c=elp("cmd"); c.textContent=String(cmd); term.appendChild(c); }
-    if(output!=null) term.appendChild(document.createTextNode(typeof output==="object"?JSON.stringify(output,null,2):String(output)));
+    if(output!=null) term.appendChild(document.createTextNode(typeof output==="object"?prettyText(output):String(output)));
     else term.appendChild(document.createTextNode("(no output captured)"));
     const os=section("Terminal output", null); os.appendChild(term); out.appendChild(os);
   }
