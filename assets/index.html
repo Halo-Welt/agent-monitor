@@ -18,7 +18,7 @@
     --ok:#1a7f37; --fail:#cf222e; --run:#9a6700;
     --c-prompt:#2563eb; --c-response:#1a7f37; --c-thought:#6d5bd0; --c-tool:#9a6700;
     --c-shell:#c0392b; --c-mcp:#1b7c83; --c-file:#a83d7a; --c-subagent:#b45309; --c-lifecycle:#6e7781;
-    --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;
+    --mono:"PingFang SC","PingFang TC",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Helvetica,Arial,sans-serif;
     --sans:"PingFang SC","PingFang TC",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Helvetica,Arial,sans-serif;
   }
   * { box-sizing:border-box; }
@@ -340,6 +340,9 @@ function saveSet(k,s){ try{ localStorage.setItem(k, JSON.stringify([...s])); }ca
 const pins = loadSet("am:pins");
 const hidden = loadSet("am:hidden");
 let replayKey = null;
+// Steps are expanded by default; remember any the user manually collapses so a
+// re-render (which happens on every new event) never silently re-collapses them.
+const stepsCollapsed = new Set();
 
 // ---- GSAP-powered entrance/transition animations (graceful fallback) ----
 // GSAP is vendored locally at /gsap.min.js. If it fails to load or the user
@@ -534,14 +537,14 @@ function treeSession(S){
   for(const [g,nodes] of turns){
     nodes.sort((a,b)=> new Date(a.firstTs)-new Date(b.firstTs));
     if(g==="—"){ const body=document.createElement("div"); body.className="turn-body"; for(const n of nodes) body.appendChild(nodeEl(n)); d.appendChild(body); continue; }
-    d.appendChild(turnBlock(nodes));
+    d.appendChild(turnBlock(nodes, S.cid+"::"+g));
   }
   return d;
 }
 
 // A turn reads as a conversation: the user prompt is the entry point, the final
 // response is the end, and everything the agent did in between collapses away.
-function turnBlock(nodes){
+function turnBlock(nodes, key){
   const wrap=document.createElement("div"); wrap.className="turn";
   const prompt=nodes.find(n=>n.cat==="prompt");
   let response=null; for(const n of nodes){ if(n.cat==="response") response=n; }
@@ -549,6 +552,8 @@ function turnBlock(nodes){
   if(prompt){ const el=nodeEl(prompt); el.classList.add("start"); wrap.appendChild(el); }
   if(middle.length){
     const st=document.createElement("details"); st.className="steps";
+    st.open = !stepsCollapsed.has(key);
+    st.addEventListener("toggle", ()=>{ if(st.open) stepsCollapsed.delete(key); else stepsCollapsed.add(key); });
     const sm=document.createElement("summary");
     const cats=[...new Set(middle.map(n=>n.cat))];
     const cnt=elp("steps-count", middle.length+(middle.length===1?" step":" steps"));
