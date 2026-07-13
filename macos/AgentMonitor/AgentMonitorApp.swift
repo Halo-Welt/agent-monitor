@@ -140,10 +140,14 @@ struct AgentMonitorApp: App {
     var body: some Scene {
         MenuBarExtra {
             AgentMonitorMenuContent(state: state)
-                .onAppear { state.start() }
         } label: {
             Image(systemName: iconName(for: state.monitor.snapshot.iconState))
                 .symbolRenderingMode(.hierarchical)
+                // Start on the label, not the menu content: with .menu style the
+                // content is only built when the user opens the menu, so wiring
+                // start() there left the server (and file watcher) down until the
+                // first click. The label is always present, so this fires at launch.
+                .onAppear { state.start() }
         }
         .menuBarExtraStyle(.menu)
     }
