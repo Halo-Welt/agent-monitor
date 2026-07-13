@@ -155,7 +155,7 @@ final class ObserverServer {
         }
 
         if path == "/api/events" && method == "GET" {
-            let events = EventLogReader.shared.readAllEvents()
+            let events = EventLogReader.shared.readRecentEvents()
             guard let data = try? JSONSerialization.data(withJSONObject: events),
                   let body = String(data: data, encoding: .utf8) else {
                 return respond(connection, status: 500, type: "text/plain", body: "encode error")

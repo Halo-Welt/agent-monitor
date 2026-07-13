@@ -46,8 +46,16 @@ final class StatusMonitor: ObservableObject {
     }
 
     private func reloadAll() {
-        events = EventLogReader.shared.readAllEvents()
-        updateSnapshot()
+        // Read off the main thread with the bounded tail reader — the log can be
+        // hundreds of MB, and a synchronous full read here would stall launch.
+        Task.detached { [weak self] in
+            let evs = EventLogReader.shared.readRecentEvents()
+            await MainActor.run {
+                guard let self else { return }
+                self.events = evs
+                self.updateSnapshot()
+            }
+        }
     }
 
     private func appendLines(_ lines: [String]) {
@@ -67,7 +75,7 @@ final class StatusMonitor: ObservableObject {
         guard snap.serverReady else {
             snap.iconState = .offline
             snap.statusLine = "offline · server not ready"
-            snap.lastEventLine = "Start the panel server or restart the app"
+            snap.lastEventLine = "Restart the app to start the panel server"
             snap.countsLine = "\(events.count) events"
             snapshot = snap
             return

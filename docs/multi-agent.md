@@ -10,7 +10,7 @@ Agent Monitor 现在是**引擎无关**的：任何支持「命令型 hook + std
    ```
    `<source>` 会被记录为事件的 `_source`（如 `cursor` / `claude` / `codex` / `workbuddy`）。
 2. 采集脚本把事件 JSON 追加进 `~/.cursor/observer/events.jsonl`，并始终 `exit 0`、返回允许——只旁听，不阻断。
-3. 面板 (`assets/index.html`) 有一张**大小写不敏感的事件别名表** `EVENT_ALIASES`，把各家事件名（`preToolUse` / `PreToolUse` / `UserPromptSubmit` …）归一到统一类别（prompt/response/thought/tool/shell/file/mcp/subagent/lifecycle），并把 `tool` 里的 Bash/Write 等按 `tool_name` 细分到 shell/file/mcp。
+3. macOS 应用内嵌的面板 UI (`assets/index.html`) 有一张**大小写不敏感的事件别名表** `EVENT_ALIASES`，把各家事件名（`preToolUse` / `PreToolUse` / `UserPromptSubmit` …）归一到统一类别（prompt/response/thought/tool/shell/file/mcp/subagent/lifecycle），并把 `tool` 里的 Bash/Write 等按 `tool_name` 细分到 shell/file/mcp。
 
 > 采集脚本的绝对路径以本机为准，下文用 `CAP` 代指
 > `~/.cursor/agent-monitor/scripts/capture.sh`。
@@ -50,7 +50,7 @@ Codex（v0.133+，2026-05 起稳定）的 hooks 事件名与 Claude 基本一致
    ```
    CAP workbuddy
    ```
-2. 打开面板，`workbuddy` 会自动作为一个新来源出现（自动分配颜色、可筛选）。
+2. 打开 Agent Monitor macOS 应用，选择 **Open Panel**（⌘O），`workbuddy` 会自动作为一个新来源出现（自动分配颜色、可筛选）。
 3. 若它的事件名不在通用词表里，在 `~/.cursor/agent-monitor/assets/index.html` 的 `EVENT_ALIASES` 里加一行（小写事件名 → 统一类别）即可，无需改核心逻辑。
 
 ## 注意

@@ -12,6 +12,38 @@ const OBS_DIR = path.join(os.homedir(), ".cursor", "observer");
 const EVENTS_FILE = path.join(OBS_DIR, "events.jsonl");
 const TX_DIR = path.join(OBS_DIR, "transcripts");
 
+// A single event can carry a full file's contents or a huge tool payload (hosts
+// like Cursor cap fields near 1 MB). Left raw, the log balloons to hundreds of
+// MB and the panel can't load it. Truncate any one string to ~20 KB — enough to
+// stay useful in the UI — and roll the log past 128 MB so disk stays bounded.
+const MAX_STR = 20 * 1024;
+const MAX_LOG = 128 * 1024 * 1024;
+
+function truncateStrings(value, depth) {
+  if (depth > 12) return value;
+  if (typeof value === "string") {
+    return value.length > MAX_STR
+      ? value.slice(0, MAX_STR) + "…[+" + (value.length - MAX_STR) + " chars truncated]"
+      : value;
+  }
+  if (Array.isArray(value)) {
+    for (let i = 0; i < value.length; i++) value[i] = truncateStrings(value[i], depth + 1);
+  } else if (value && typeof value === "object") {
+    for (const k of Object.keys(value)) value[k] = truncateStrings(value[k], depth + 1);
+  }
+  return value;
+}
+
+function rotateIfLarge() {
+  try {
+    const st = fs.statSync(EVENTS_FILE);
+    if (st.size > MAX_LOG) {
+      // Keep one archive generation so the roll never drops history outright.
+      fs.renameSync(EVENTS_FILE, EVENTS_FILE + ".1");
+    }
+  } catch { /* no file yet, or stat failed — nothing to rotate */ }
+}
+
 function allow() {
   try { process.stdout.write('{"permission":"allow"}'); } catch {}
 }
@@ -80,7 +112,8 @@ async function main() {
 
   try {
     fs.mkdirSync(OBS_DIR, { recursive: true });
-    fs.appendFileSync(EVENTS_FILE, JSON.stringify(ev) + "\n");
+    rotateIfLarge();
+    fs.appendFileSync(EVENTS_FILE, JSON.stringify(truncateStrings(ev, 0)) + "\n");
   } catch { /* logging is best-effort */ }
 
   archiveTranscript(ev);

@@ -278,7 +278,7 @@
   @media (prefers-reduced-motion: reduce) { *, ::before, ::after { animation:none !important; transition:none !important; } }
 </style>
 </head>
-<body class="in-browser">
+<body>
 <header>
   <div class="topbar">
     <div class="brand"><h1>Agent Monitor</h1><span class="sub">live</span></div>
@@ -459,7 +459,10 @@ function build(){
     if(new Date(ev._ts) > new Date(S.lastTs)) S.lastTs = ev._ts;   // track most-recent activity for ordering
     if(ev.model||ev.model_id) S.model = ev.model||ev.model_id;
     const k = keyOf(ev);
-    if(!S.nodes.has(k)) S.nodes.set(k,{ key:cid+"::"+k, cat:catOf(ev), gen:ev.generation_id||"", evs:[], firstTs:ev._ts });
+    // Turn id: Cursor tags each turn with generation_id; Claude Code has none but
+    // shares one prompt_id across a turn's prompt → tools → stop. Fall back to it
+    // so Claude turns group into a turnBlock and get a sequence diagram too.
+    if(!S.nodes.has(k)) S.nodes.set(k,{ key:cid+"::"+k, cat:catOf(ev), gen:ev.generation_id||ev.prompt_id||"", evs:[], firstTs:ev._ts });
     S.nodes.get(k).evs.push(ev);
   }
   return sessions;

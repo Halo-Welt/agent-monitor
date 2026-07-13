@@ -22,7 +22,7 @@ final class EventLogReader {
         try? FileManager.default.createDirectory(at: obsDir, withIntermediateDirectories: true)
     }
 
-    // MARK: - Session helpers (match server.mjs / panel)
+    // MARK: - Session helpers (match panel UI)
 
     static func sessionKey(of event: [String: Any]) -> String {
         if let cid = event["conversation_id"] as? String, !cid.isEmpty { return cid }
@@ -46,6 +46,28 @@ final class EventLogReader {
     func readAllEvents() -> [[String: Any]] {
         guard let text = try? String(contentsOf: eventsFile, encoding: .utf8) else { return [] }
         return parseLines(text)
+    }
+
+    /// Reads only the most recent events by seeking to a bounded tail window, so
+    /// cost stays flat no matter how large the log grows (the panel used to load
+    /// the whole file at once and stall on a multi-hundred-MB log). Older history
+    /// stays on disk; the panel simply shows the recent window.
+    func readRecentEvents(limit: Int = 5000, windowBytes: UInt64 = 48 * 1024 * 1024) -> [[String: Any]] {
+        guard let attrs = try? FileManager.default.attributesOfItem(atPath: eventsFile.path),
+              let size = attrs[.size] as? UInt64, size > 0 else { return [] }
+        guard let handle = try? FileHandle(forReadingFrom: eventsFile) else { return [] }
+        defer { try? handle.close() }
+        let start = size > windowBytes ? size - windowBytes : 0
+        handle.seek(toFileOffset: start)
+        var data = handle.readDataToEndOfFile()
+        // If we started mid-file, drop the partial first line up to the first
+        // newline (a single 0x0A byte, so this never splits a multibyte char).
+        if start > 0, let nl = data.firstIndex(of: 0x0A) {
+            data = data.subdata(in: (nl + 1)..<data.endIndex)
+        }
+        guard let text = String(data: data, encoding: .utf8) else { return [] }
+        let events = parseLines(text)
+        return events.count > limit ? Array(events.suffix(limit)) : events
     }
 
     func parseLines(_ text: String) -> [[String: Any]] {

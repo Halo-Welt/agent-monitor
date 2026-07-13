@@ -1,8 +1,8 @@
 #!/bin/sh
-# agent-monitor installer.
-# Installs the capture/panel scripts into a project-independent location
-# (~/.cursor/agent-monitor), then registers Cursor user hooks (merged, not
-# clobbered). Prints how to wire Claude Code / Codex / any other agent.
+# agent-monitor hook installer.
+# Installs capture scripts into a project-independent location
+# (~/.cursor/agent-monitor), then registers Cursor + Claude Code user hooks
+# (merged, not clobbered). View captured events in the macOS menu bar app.
 #
 # Usage:  sh install.sh
 set -e
@@ -11,9 +11,9 @@ SELF=$(cd "$(dirname "$0")" && pwd)
 DST="$HOME/.cursor/agent-monitor"
 CAP="$DST/scripts/capture.sh"
 
-echo "==> Installing capture/panel into $DST"
+echo "==> Installing capture scripts into $DST"
 mkdir -p "$DST/scripts" "$DST/assets"
-cp "$SELF/scripts/capture.sh" "$SELF/scripts/capture.mjs" "$SELF/scripts/server.mjs" "$DST/scripts/"
+cp "$SELF/scripts/capture.sh" "$SELF/scripts/capture.mjs" "$DST/scripts/"
 cp "$SELF"/assets/* "$DST/assets/"
 chmod +x "$DST/scripts/capture.sh"
 
@@ -49,8 +49,6 @@ if [ -d "$HOME/.claude" ]; then
 const fs=require("fs"), os=require("os"), path=require("path");
 const CAP=process.env.CAP;
 const cmd=CAP+" claude";
-// Claude Code uses PascalCase events; PreToolUse/PostToolUse/PostToolUseFailure
-// take a matcher group. Only the 'hooks' key is touched — env/theme/etc. kept.
 const MATCHER=new Set(["PreToolUse","PostToolUse","PostToolUseFailure"]);
 const EVENTS=["SessionStart","SessionEnd","UserPromptSubmit","PreToolUse","PostToolUse",
   "PostToolUseFailure","Stop","SubagentStop","PreCompact","Notification"];
@@ -81,8 +79,9 @@ cat <<EOF
     - Claude Code: start a NEW claude session — settings.json is read at
                    session start, so a running session won't pick them up.
 
-==> Start the panel:
-    node "$DST/scripts/server.mjs"     # then open http://127.0.0.1:4517
+==> View captured events:
+    Open the Agent Monitor macOS app and choose "Open Panel" (⌘O).
+    Or build it:  sh scripts/build-macos-app.sh
 
 ==> Add MORE agents (they all stream into the same panel, tagged by source):
 
