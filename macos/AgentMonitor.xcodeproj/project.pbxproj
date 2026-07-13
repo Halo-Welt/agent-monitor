@@ -1,0 +1,286 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		B00100000000000000000001 /* AgentMonitorApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00100000000000000000001 /* AgentMonitorApp.swift */; };
+		B00100000000000000000002 /* EventLogReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00100000000000000000002 /* EventLogReader.swift */; };
+		B00100000000000000000003 /* StatusMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00100000000000000000003 /* StatusMonitor.swift */; };
+		B00100000000000000000004 /* ObserverServer.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00100000000000000000004 /* ObserverServer.swift */; };
+		B00100000000000000000005 /* PanelWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00100000000000000000005 /* PanelWindowController.swift */; };
+		B00100000000000000000006 /* HookInstaller.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00100000000000000000006 /* HookInstaller.swift */; };
+		B00100000000000000000007 /* LaunchAtLogin.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00100000000000000000007 /* LaunchAtLogin.swift */; };
+		B00100000000000000000008 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F00100000000000000000008 /* Assets.xcassets */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		F00100000000000000000001 /* AgentMonitorApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentMonitorApp.swift; sourceTree = "<group>"; };
+		F00100000000000000000002 /* EventLogReader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventLogReader.swift; sourceTree = "<group>"; };
+		F00100000000000000000003 /* StatusMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusMonitor.swift; sourceTree = "<group>"; };
+		F00100000000000000000004 /* ObserverServer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObserverServer.swift; sourceTree = "<group>"; };
+		F00100000000000000000005 /* PanelWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PanelWindowController.swift; sourceTree = "<group>"; };
+		F00100000000000000000006 /* HookInstaller.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HookInstaller.swift; sourceTree = "<group>"; };
+		F00100000000000000000007 /* LaunchAtLogin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchAtLogin.swift; sourceTree = "<group>"; };
+		F00100000000000000000008 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		F00100000000000000000009 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		F0010000000000000000000A /* Agent Monitor.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Agent Monitor.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		C00100000000000000000001 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		G00100000000000000000001 = {
+			isa = PBXGroup;
+			children = (
+				G00100000000000000000002 /* AgentMonitor */,
+				G00100000000000000000003 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		G00100000000000000000002 /* AgentMonitor */ = {
+			isa = PBXGroup;
+			children = (
+				F00100000000000000000001 /* AgentMonitorApp.swift */,
+				F00100000000000000000002 /* EventLogReader.swift */,
+				F00100000000000000000003 /* StatusMonitor.swift */,
+				F00100000000000000000004 /* ObserverServer.swift */,
+				F00100000000000000000005 /* PanelWindowController.swift */,
+				F00100000000000000000006 /* HookInstaller.swift */,
+				F00100000000000000000007 /* LaunchAtLogin.swift */,
+				G00100000000000000000004 /* Resources */,
+				F00100000000000000000009 /* Info.plist */,
+			);
+			path = AgentMonitor;
+			sourceTree = "<group>";
+		};
+		G00100000000000000000003 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				F0010000000000000000000A /* Agent Monitor.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		G00100000000000000000004 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				F00100000000000000000008 /* Assets.xcassets */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		T00100000000000000000001 /* AgentMonitor */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = L00100000000000000000003 /* Build configuration list for PBXNativeTarget "AgentMonitor" */;
+			buildPhases = (
+				D00100000000000000000001 /* Sources */,
+				C00100000000000000000001 /* Frameworks */,
+				R00100000000000000000001 /* Resources */,
+				S00100000000000000000001 /* Sync Assets */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = AgentMonitor;
+			productName = AgentMonitor;
+			productReference = F0010000000000000000000A /* Agent Monitor.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		P00100000000000000000001 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1500;
+				LastUpgradeCheck = 1500;
+				TargetAttributes = {
+					T00100000000000000000001 = {
+						CreatedOnToolsVersion = 15.0;
+					};
+				};
+			};
+			buildConfigurationList = L00100000000000000000001 /* Build configuration list for PBXProject "AgentMonitor" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = G00100000000000000000001;
+			productRefGroup = G00100000000000000000003 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				T00100000000000000000001 /* AgentMonitor */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		R00100000000000000000001 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B00100000000000000000008 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		S00100000000000000000001 /* Sync Assets */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			name = "Sync Assets";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"${SRCROOT}/../scripts/sync-macos-assets.sh\"\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		D00100000000000000000001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B00100000000000000000001 /* AgentMonitorApp.swift in Sources */,
+				B00100000000000000000002 /* EventLogReader.swift in Sources */,
+				B00100000000000000000003 /* StatusMonitor.swift in Sources */,
+				B00100000000000000000004 /* ObserverServer.swift in Sources */,
+				B00100000000000000000005 /* PanelWindowController.swift in Sources */,
+				B00100000000000000000006 /* HookInstaller.swift in Sources */,
+				B00100000000000000000007 /* LaunchAtLogin.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		X00100000000000000000001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		X00100000000000000000002 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+			};
+			name = Release;
+		};
+		X00100000000000000000003 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = "";
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = AgentMonitor/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.agentmonitor.app;
+				PRODUCT_NAME = "Agent Monitor";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		X00100000000000000000004 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = "";
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = AgentMonitor/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.agentmonitor.app;
+				PRODUCT_NAME = "Agent Monitor";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		L00100000000000000000001 /* Build configuration list for PBXProject "AgentMonitor" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				X00100000000000000000001 /* Debug */,
+				X00100000000000000000002 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		L00100000000000000000003 /* Build configuration list for PBXNativeTarget "AgentMonitor" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				X00100000000000000000003 /* Debug */,
+				X00100000000000000000004 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = P00100000000000000000001 /* Project object */;
+}

@@ -1,49 +1,85 @@
 # Agent Monitor
 
-Multi-engine, hook-based observability for AI coding agents — **Cursor, Claude Code, Codex, and any agent with command hooks**. It captures every action an agent takes and streams it to a local, zero-dependency web panel with a live **timeline** and a collapsible **session → turn → tool/subagent tree**, color-coded by source.
+Multi-engine, hook-based observability for AI coding agents — **Cursor, Claude Code, Codex, and any agent with command hooks**. Every action is captured locally and streamed to a zero-dependency web panel with a **Tree / Timeline / History** UI, source-colored events, and a per-turn **sequence diagram** that reconstructs the conversation flow from captured hooks.
 
-**Global by design:** the hooks live under `~/.cursor/` and are not tied to any project, so it monitors every project's conversations at once. Nothing leaves your machine.
+**Global by design:** hooks live under `~/.cursor/` and are not tied to a single repo, so one panel watches agents across all your projects. Data never leaves your machine.
+
+[中文文档](README.zh-CN.md)
+
+![Tree view with per-turn sequence diagram](docs/screenshots/tree-sequence-diagram.png)
 
 ## What it captures
 
-Every hook event, appended to a local JSONL log:
+Each hook event is appended to a local JSONL log:
 
-- Your prompt, the agent's thinking blocks and final replies
-- Every tool call with **full input and result**
-- Shell commands and their **full output**
+- User prompts, agent thinking blocks, and final replies
+- Every tool call with **full input and output**
+- Shell commands with **full terminal output**
 - File reads (content) and edits (diffs)
 - MCP calls and results
-- Subagents: task, type, model, status, stats, and their own transcript
+- Subagents: task, type, model, status, stats, and archived transcripts
 - Session lifecycle and context compaction
 
-It also snapshots conversation transcripts into the archive on session/subagent end.
+When a session or subagent ends, a transcript snapshot is archived on disk.
 
 ## What it cannot capture (platform limits)
 
-Not exposed by any agent hook — no observer can get them:
+No agent hook exposes these — no observer can:
 
-- The full assembled prompt actually sent to the LLM (system prompt, rules, serialized context)
-- Per-token reasoning / raw model API request-response
+- The fully assembled prompt sent to the LLM (system prompt, rules, serialized context)
+- Per-token reasoning or raw model API request/response
 - Exact per-call token usage
 
-In short: the **conversation layer** (what the agent did) is captured almost completely; the **model layer** (what the model received token-by-token) is not.
+In short: the **conversation layer** (what the agent did) is captured almost completely; the **model layer** (what the model saw token-by-token) is not.
 
 ## Architecture
 
 ```
 Agent (Cursor / Claude Code / Codex / …)
-   │  lifecycle events → run a hook process, JSON on stdin
+   │  lifecycle events → spawn a hook process, JSON on stdin
    ▼
 scripts/capture.sh <source> → scripts/capture.mjs   (append-only, fail-open, never blocks)
-   │  one JSON line per event (+ _source tag)
+   │  one JSON line per event (tagged with _source)
    ▼
 ~/.cursor/observer/events.jsonl
    │  watch + tail
    ▼
-scripts/server.mjs  ──SSE──▶  assets/index.html   (timeline + tree, source-filtered)
+scripts/server.mjs  ──SSE──▶  assets/index.html   (tree + timeline + history)
 ```
 
-The capture hook only writes files (zero network, fail-open) so it can never block or slow the agent. The collector tails the log and pushes updates over SSE.
+Hooks only write files (zero network, fail-open), so they never slow the agent. The collector tails the log and pushes updates over SSE.
+
+## Panel
+
+- **Tree / Timeline / History** views with **source** and **type** filters, text search, and a session picker
+- **Tree:** sessions ordered by **most recent activity on top**; within a session, turns stay chronological (`prompt → steps → response`)
+- **Per-turn sequence diagram:** seven fixed swimlanes (User, Agent, Tool, Shell, File, MCP, Subagent). Solid arrows = calls; dashed arrows = returns. **Expanded by default**; intermediate step lists are **collapsed by default**. Click any arrow to open details. Updates live as events arrive while the diagram is open.
+- **Follow:** in Tree view, pins to the **top** (newest session); in Timeline, pins to the **bottom** (newest event). Scroll away to pause; return to the edge to resume.
+- Click any node for rich detail: prose, terminal output, diffs, tool I/O, subagent stats, plus raw hook JSON
+
+## macOS menu bar app
+
+Package Agent Monitor as a native macOS menu bar app — no need to run `server.mjs` manually:
+
+```bash
+sh scripts/build-macos-app.sh
+# output: macos/build/Build/Products/Release/Agent Monitor.app
+open "macos/build/Build/Products/Release/Agent Monitor.app"
+```
+
+**Features:**
+
+- Menu bar icon shows agent activity (idle / live / active / offline)
+- Click the menu for a compact summary (source, recent events, counts)
+- **Open Panel** (⌘O) opens the full monitor window (same web UI)
+- **Install Hooks…** registers Cursor / Claude Code hooks in one click
+- **Launch at Login**
+
+The app embeds the same HTTP+SSE server (default `http://127.0.0.1:4517`) as the CLI `server.mjs`. If the port is busy, quit any old `node server.mjs` process first.
+
+Build copies the latest `assets/` into the app bundle on every build via `scripts/sync-macos-assets.sh`.
+
+**Requirements:** macOS 13+, Xcode 15+ to build. Ad-hoc signing is fine for local use; distribute with Developer ID signing and notarization.
 
 ## Install
 
@@ -51,9 +87,7 @@ The capture hook only writes files (zero network, fail-open) so it can never blo
 sh install.sh
 ```
 
-This copies the capture/panel scripts to a project-independent location
-(`~/.cursor/agent-monitor`) and registers **Cursor** user hooks (merged, not
-clobbered). Reload the Cursor window afterwards.
+This copies capture/panel scripts to a project-independent location (`~/.cursor/agent-monitor`) and registers **Cursor** user hooks (merged, not overwritten). Reload the Cursor window after install.
 
 Start the panel:
 
@@ -64,25 +98,16 @@ node ~/.cursor/agent-monitor/scripts/server.mjs
 
 ## Monitor more agents
 
-Every agent streams into the same panel, tagged and colored by source. See
-[`docs/multi-agent.md`](docs/multi-agent.md) for ready-to-paste configs:
+All agents feed one panel, tagged and colored by source. Copy-paste configs in [`docs/multi-agent.md`](docs/multi-agent.md):
 
 - **Cursor** — configured by `install.sh`
 - **Claude Code** — merge [`adapters/claude-code.settings.json`](adapters/claude-code.settings.json) into `~/.claude/settings.json`
 - **Codex** — see [`adapters/codex.hooks.json`](adapters/codex.hooks.json)
-- **Any agent** — point its command hook at `~/.cursor/agent-monitor/scripts/capture.sh <your-source-name>`; if it uses novel event names, add them to `EVENT_ALIASES` in `assets/index.html`.
-
-## Panel
-
-- **Tree / Timeline** views, **source filter** + **type filter** chips, text filter, session picker
-- **Follow** auto-scrolls to newest events; scroll up to pause, scroll to bottom to resume
-- Click any node for a rich detail view (prose, terminal output, file diffs, tool I/O, subagent stats) with a raw-JSON fallback
+- **Any agent** — point its command hook at `~/.cursor/agent-monitor/scripts/capture.sh <your-source-name>`; add novel event names to `EVENT_ALIASES` in `assets/index.html` if needed.
 
 ## Data & privacy
 
-All data stays local under `~/.cursor/observer/`. This log can contain **file
-contents, shell output, and prompts across all your projects** — treat it as
-sensitive. Delete the folder any time to reset.
+Everything stays under `~/.cursor/observer/` on your machine. The log may contain **file contents, shell output, and prompts from all projects** — treat it as sensitive. Delete that directory anytime to reset.
 
 ## License
 

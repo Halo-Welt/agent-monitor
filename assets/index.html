@@ -155,6 +155,24 @@
   .steps-count { font-size:var(--fs-sm); font-weight:600; color:var(--fg); }
   .steps-cats { font-size:var(--fs-xs); color:var(--faint); text-transform:lowercase; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .steps-body { padding:2px 4px 4px; }
+
+  /* ---------------- per-turn flow diagram (opt-in, collapsed) ---------------- */
+  .flow { margin:3px 4px; border:1px solid var(--border); border-radius:var(--radius-sm); background:var(--panel); overflow:hidden; }
+  .flow > summary { padding:6px 9px 6px 26px; cursor:pointer; list-style:none; display:flex; align-items:center; gap:8px; position:relative; }
+  .flow > summary::-webkit-details-marker { display:none; }
+  .flow > summary::before { content:"▸"; position:absolute; left:11px; color:var(--faint); font-size:9px; }
+  .flow[open] > summary::before { content:"▾"; }
+  .flow > summary:hover { background:var(--panel-2); }
+  .flow-title { font-size:var(--fs-sm); font-weight:600; color:var(--fg); }
+  .flow-sub { font-size:var(--fs-xs); color:var(--faint); }
+  .flow-wrap { padding:6px 8px 10px; overflow-x:auto; }
+  .flow-note { color:var(--faint); font-size:var(--fs-label); margin-top:6px; line-height:1.4; }
+  .flow-svg { display:block; }
+  .flow-svg .flow-actor { fill:var(--fg); font-size:11px; font-weight:600; }
+  .flow-svg .flow-lbl { font-size:10px; }
+  .flow-msg .flow-hit { fill:transparent; }
+  .flow-msg:hover .flow-hit { fill:rgba(37,99,235,.05); }
+  .flow-msg.flow-sel .flow-hit { fill:var(--accent-soft); }
   .node.start { border-left:2px solid var(--c-prompt); }
   .node.end { border-left:2px solid var(--c-response); }
   .node.start.sel, .node.end.sel { border-left-color:var(--accent); }
@@ -343,9 +361,12 @@ function saveSet(k,s){ try{ localStorage.setItem(k, JSON.stringify([...s])); }ca
 const pins = loadSet("am:pins");
 const hidden = loadSet("am:hidden");
 let replayKey = null;
-// Steps are expanded by default; remember any the user manually collapses so a
-// re-render (which happens on every new event) never silently re-collapses them.
-const stepsCollapsed = new Set();
+// Steps are collapsed by default; remember which turns the user manually opened
+// so a re-render (fired on every new event) keeps them open.
+const stepsOpen = new Set();
+// The per-turn sequence diagram is expanded by default; remember which turns the
+// user manually collapsed so a re-render never silently re-expands them.
+const flowClosed = new Set();
 
 // ---- GSAP-powered entrance/transition animations (graceful fallback) ----
 // GSAP is vendored locally at /gsap.min.js. If it fails to load or the user
@@ -433,8 +454,9 @@ function build(){
   const sessions = new Map();
   for(const ev of filtered){
     const cid = sessionKeyOf(ev);
-    if(!sessions.has(cid)) sessions.set(cid,{ cid, src:srcOf(ev), model:ev.model||ev.model_id||"", nodes:new Map(), firstTs:ev._ts });
+    if(!sessions.has(cid)) sessions.set(cid,{ cid, src:srcOf(ev), model:ev.model||ev.model_id||"", nodes:new Map(), firstTs:ev._ts, lastTs:ev._ts });
     const S = sessions.get(cid);
+    if(new Date(ev._ts) > new Date(S.lastTs)) S.lastTs = ev._ts;   // track most-recent activity for ordering
     if(ev.model||ev.model_id) S.model = ev.model||ev.model_id;
     const k = keyOf(ev);
     if(!S.nodes.has(k)) S.nodes.set(k,{ key:cid+"::"+k, cat:catOf(ev), gen:ev.generation_id||"", evs:[], firstTs:ev._ts });
@@ -504,11 +526,15 @@ function render(){
     for(const ev of rows){ const s=srcOf(ev); wrap.appendChild(tlRow(ev, s!==lastSrc)); lastSrc=s; }
     frag.appendChild(wrap);
   } else {
-    for(const S of sessions.values()) frag.appendChild(treeSession(S));
+    // newest conversation on top: order sessions by most-recent activity
+    const ordered=[...sessions.values()].sort((a,b)=> new Date(b.lastTs)-new Date(a.lastTs));
+    for(const S of ordered) frag.appendChild(treeSession(S));
   }
   list.innerHTML=""; list.appendChild(frag);
   animateEntrance(list);
-  if(atBottom) list.scrollTop = list.scrollHeight; else list.scrollTop = prevTop;
+  // tree shows newest on top → "follow" pins to the top; timeline still pins to the bottom
+  if(atBottom) list.scrollTop = (view==="tree") ? 0 : list.scrollHeight;
+  else list.scrollTop = prevTop;
 }
 
 function tlRow(ev, showSrc){
@@ -555,8 +581,8 @@ function turnBlock(nodes, key){
   if(prompt){ const el=nodeEl(prompt); el.classList.add("start"); wrap.appendChild(el); }
   if(middle.length){
     const st=document.createElement("details"); st.className="steps";
-    st.open = !stepsCollapsed.has(key);
-    st.addEventListener("toggle", ()=>{ if(st.open) stepsCollapsed.delete(key); else stepsCollapsed.add(key); });
+    st.open = stepsOpen.has(key);
+    st.addEventListener("toggle", ()=>{ if(st.open) stepsOpen.add(key); else stepsOpen.delete(key); });
     const sm=document.createElement("summary");
     const cats=[...new Set(middle.map(n=>n.cat))];
     const cnt=elp("steps-count", middle.length+(middle.length===1?" step":" steps"));
@@ -567,6 +593,7 @@ function turnBlock(nodes, key){
     st.appendChild(b); wrap.appendChild(st);
   }
   if(response){ const el=nodeEl(response); el.classList.add("end"); wrap.appendChild(el); }
+  const flow=flowBlock(nodes, key); if(flow) wrap.appendChild(flow);
   return wrap;
 }
 
@@ -580,6 +607,109 @@ function nodeEl(node){
   el.append(st,tag(node.cat),lab,meta);
   el.onclick=()=>{ selectedKey=node.key; showDetail(node.evs, node.cat); render(); };
   return el;
+}
+
+/* ---------------- per-turn sequence diagram ----------------
+   A sequence-diagram view of one turn's information chain, drawn as raw SVG
+   (no dependency). The lanes are a fixed cast (drawn every turn); the messages
+   come only from captured hook events. It stays honest about the platform
+   limit: model-internal token steps aren't observable — user prompt in,
+   tool/thought/mcp steps, assistant reply out. */
+const SVGNS = "http://www.w3.org/2000/svg";
+function svgEl(tag, attrs){ const e=document.createElementNS(SVGNS,tag); if(attrs) for(const k in attrs){ if(attrs[k]!=null&&attrs[k]!=="") e.setAttribute(k, attrs[k]); } return e; }
+const FLOW_LANES = [["tool","工具"],["shell","Shell"],["file","文件"],["mcp","MCP"],["subagent","子Agent"]];
+
+// Cheap: decide lanes + ordered messages without touching the DOM, so we can
+// skip empty turns and defer the expensive SVG build until the user expands.
+function turnFlowModel(nodes){
+  const lanes=[]; const laneIndex={};
+  const addLane=(id,label)=>{ laneIndex[id]=lanes.length; lanes.push({id,label}); };
+  // Always draw the full cast — even lanes this turn didn't touch — so the
+  // structure stays fixed and turns are visually comparable at a glance.
+  addLane("user","用户");
+  addLane("agent","Agent");
+  for(const [cat,label] of FLOW_LANES) addLane(cat,label);
+  const messages=[];
+  for(const n of nodes){
+    const c=n.cat;
+    if(c==="prompt") messages.push({from:"user",to:"agent",cat:"prompt",label:nodeLabel(n),node:n});
+    else if(c==="response") messages.push({from:"agent",to:"user",cat:"response",dashed:true,label:nodeLabel(n),node:n});
+    else if(c==="thought") messages.push({from:"agent",to:"agent",self:true,cat:"thought",label:nodeLabel(n),node:n});
+    else if(laneIndex[c]!=null){
+      messages.push({from:"agent",to:c,cat:c,label:nodeLabel(n),node:n});
+      const st=nodeState(n);
+      if(st!=="run"){ const dur=nodeDuration(n); messages.push({from:c,to:"agent",cat:c,dashed:true,label:(st==="fail"?"失败":"结果")+(dur?(" · "+dur):""),node:n}); }
+    }
+    // lifecycle / unknown middle events are noise here — skip them
+  }
+  return { lanes, laneIndex, messages };
+}
+
+function flowArrowHead(g, x, y, dir, col){ const s=4.5; g.appendChild(svgEl("path",{ d:"M "+x+" "+y+" L "+(x-dir*s)+" "+(y-s)+" L "+(x-dir*s)+" "+(y+s)+" Z", fill:col })); }
+
+function flowSvg(model){
+  const { lanes, laneIndex, messages } = model;
+  const laneW=128, headH=28, topPad=16, rowH=38, botPad=16;
+  const W = lanes.length*laneW;
+  const bodyTop = headH+topPad;
+  const H = bodyTop + messages.length*rowH + botPad + headH;
+  const laneX = i => Math.round(i*laneW + laneW/2);
+  const border = cvar("--border"), panelBg = cvar("--panel-3");
+  const svg = svgEl("svg",{ class:"flow-svg", width:W, height:H, viewBox:"0 0 "+W+" "+H });
+
+  lanes.forEach((ln,i)=>{
+    const x=laneX(i);
+    svg.appendChild(svgEl("line",{ x1:x, y1:headH, x2:x, y2:H-headH, stroke:border, "stroke-width":1 }));
+    [0, H-headH].forEach(top=>{
+      const bw=Math.min(laneW-16,108), bh=headH-6;
+      svg.appendChild(svgEl("rect",{ x:x-bw/2, y:top+3, width:bw, height:bh, rx:5, fill:panelBg, stroke:border }));
+      const t=svgEl("text",{ x:x, y:top+headH/2+1, "text-anchor":"middle", "dominant-baseline":"middle", class:"flow-actor" });
+      t.textContent=clip(ln.label,12); svg.appendChild(t);
+    });
+  });
+
+  messages.forEach((m,r)=>{
+    const y=Math.round(bodyTop + r*rowH + rowH/2);
+    const col=cvar(CATVAR[m.cat]||"--c-lifecycle");
+    const g=svgEl("g",{ class:"flow-msg"+(m.node&&selectedKey===m.node.key?" flow-sel":"") });
+    g.appendChild(svgEl("rect",{ class:"flow-hit", x:0, y:y-rowH/2, width:W, height:rowH }));
+    if(m.self){
+      const x=laneX(laneIndex[m.from]); const w=30, up=y-8, dn=y+8;
+      g.appendChild(svgEl("path",{ d:"M "+x+" "+up+" h "+w+" v "+(dn-up)+" h "+(-(w-4)), fill:"none", stroke:col, "stroke-width":1.4 }));
+      flowArrowHead(g, x+4, dn, -1, col);
+      const t=svgEl("text",{ x:x+w+8, y:up-3, class:"flow-lbl", fill:col });
+      t.textContent=clip(m.label, Math.max(10, Math.floor((W-(x+w+12))/6.2))); g.appendChild(t);
+    } else {
+      const sx=laneX(laneIndex[m.from]), tx=laneX(laneIndex[m.to]); const dir=tx>sx?1:-1;
+      g.appendChild(svgEl("line",{ x1:sx, y1:y, x2:tx-dir*6, y2:y, stroke:col, "stroke-width":1.4, "stroke-dasharray": m.dashed?"4 3":null }));
+      flowArrowHead(g, tx-dir*1, y, dir, col);
+      const t=svgEl("text",{ x:(sx+tx)/2, y:y-5, "text-anchor":"middle", class:"flow-lbl", fill:col });
+      t.textContent=clip(m.label, Math.max(6, Math.floor((Math.abs(tx-sx)-12)/6.2))); g.appendChild(t);
+    }
+    const ttl=svgEl("title"); ttl.textContent=m.label; g.appendChild(ttl);
+    if(m.node){ g.style.cursor="pointer"; g.addEventListener("click",(e)=>{ e.stopPropagation(); selectedKey=m.node.key; showDetail(m.node.evs, m.node.cat); render(); }); }
+    svg.appendChild(g);
+  });
+  return svg;
+}
+
+// A collapsed <details> holding the flow diagram; the SVG is built lazily on
+// first open so collapsed turns cost nothing on each re-render.
+function flowBlock(nodes, key){
+  const model = turnFlowModel(nodes);
+  if(!model.messages.length) return null;
+  const fkey = key+"::flow";
+  const fl=document.createElement("details"); fl.className="flow"; fl.open=!flowClosed.has(fkey);
+  const sm=document.createElement("summary");
+  sm.append(elp("flow-title","时序图"), elp("flow-sub","实线=调用 / 发送 · 虚线=返回 / 结果 · 点击查看详情"));
+  fl.appendChild(sm);
+  const wrap=elp("flow-wrap"); fl.appendChild(wrap);
+  const build=()=>{ if(wrap.dataset.built) return; wrap.dataset.built="1";
+    wrap.appendChild(flowSvg(model));
+    wrap.appendChild(elp("flow-note","模型内部逐 token 步骤不可观测，此图仅基于已捕获的对话事件重建。")); };
+  if(fl.open) build();
+  fl.addEventListener("toggle", ()=>{ if(fl.open){ flowClosed.delete(fkey); build(); } else flowClosed.add(fkey); });
+  return fl;
 }
 
 /* ---------------- rich detail renderers ---------------- */
@@ -985,7 +1115,7 @@ function renderSrcChips(){
   }
   if(val) val.textContent = srcFilter.size===0 ? "all" : (srcFilter.size+"/"+srcs.length);
 }
-function setFollow(v){ follow=v; $("followBtn").classList.toggle("on",v); if(v){ const l=$("list"); l.scrollTop=l.scrollHeight; } }
+function setFollow(v){ follow=v; $("followBtn").classList.toggle("on",v); if(v){ const l=$("list"); l.scrollTop = (view==="tree") ? 0 : l.scrollHeight; } }
 function setFollowUI(v){ follow=v; $("followBtn").classList.toggle("on",v); }
 let everLive = false;
 function setConn(live){
@@ -1020,7 +1150,7 @@ async function boot(){
   renderChips(); renderSrcChips();
   try{ const r=await fetch("/api/events"); const arr=await r.json(); arr.forEach(addEvent); }catch(e){}
   render();
-  const list=$("list"); list.scrollTop=list.scrollHeight;
+  const list=$("list"); list.scrollTop = (view==="tree") ? 0 : list.scrollHeight;
   const es=new EventSource("/stream");
   es.onopen=()=>setConn(true);
   es.onerror=()=>setConn(false);
@@ -1056,7 +1186,7 @@ function wireDropdown(dropId, btnId){
 }
 wireDropdown("srcDrop","srcBtn"); wireDropdown("typeDrop","typeBtn");
 document.addEventListener("click",(e)=>{ if(!e.target.closest(".dropdown")) closeDropdowns(); });
-$("list").addEventListener("scroll",()=>{ const l=$("list"); const near=(l.scrollHeight-l.scrollTop-l.clientHeight)<48; if(near!==follow) setFollowUI(near); });
+$("list").addEventListener("scroll",()=>{ const l=$("list"); const near=(view==="tree") ? (l.scrollTop<48) : ((l.scrollHeight-l.scrollTop-l.clientHeight)<48); if(near!==follow) setFollowUI(near); });
 
 boot();
 </script>
