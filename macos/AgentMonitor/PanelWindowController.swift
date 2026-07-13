@@ -43,10 +43,11 @@ final class PanelWindowController: NSWindowController {
         NSApp.activate(ignoringOtherApps: true)
         window.makeKeyAndOrderFront(nil)
 
-        let current = webView?.url?.absoluteString ?? ""
-        if current != url.absoluteString {
-            webView?.load(URLRequest(url: url))
-        }
+        // Always reload on open. The panel loads its history once at page load;
+        // if we skipped reloading when the URL is unchanged, a panel opened while
+        // the log was still large would stay frozen on that stale, heavy view even
+        // after the log rotated small. Reopening should always give a fresh load.
+        webView?.load(URLRequest(url: url))
     }
 
     func reloadIfVisible(url: URL) {
