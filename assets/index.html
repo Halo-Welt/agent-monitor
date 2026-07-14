@@ -164,7 +164,43 @@
   .flow[open] > summary::before { content:"▾"; }
   .flow > summary:hover { background:var(--panel-2); }
   .flow-title { font-size:var(--fs-sm); font-weight:600; color:var(--fg); }
-  .flow-sub { font-size:var(--fs-xs); color:var(--faint); }
+  .flow-sub { font-size:var(--fs-xs); color:var(--faint); flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .flow-tokens { margin-left:auto; position:relative; flex-shrink:0; max-width:55%; }
+  .flow-tokens.pending .flow-tok-total { color:var(--faint); font-weight:500; }
+  .flow-tok-chip {
+    display:flex; align-items:center; gap:7px; padding:2px 6px; margin:-2px -4px;
+    border-radius:5px; cursor:pointer; font-variant-numeric:tabular-nums;
+    border:1px solid transparent;
+  }
+  .flow-tok-chip:hover { background:var(--panel-2); border-color:var(--border); }
+  .flow-tokens.open .flow-tok-chip { background:var(--accent-soft); border-color:color-mix(in srgb, var(--accent) 28%, white); }
+  .flow-tok-minibar { width:40px; height:6px; border-radius:3px; display:flex; overflow:hidden; background:var(--panel-2); flex-shrink:0; }
+  .flow-tok-minibar span { display:block; height:100%; min-width:0; }
+  .flow-tok-total { font-size:var(--fs-sm); font-weight:650; color:var(--fg); white-space:nowrap; }
+  .tok-pop {
+    display:none; position:absolute; right:0; top:calc(100% + 6px); z-index:40;
+    width:272px; padding:12px 12px 10px; background:var(--panel);
+    border:1px solid var(--border); border-radius:10px; box-shadow:var(--shadow-pop);
+  }
+  .flow-tokens.open .tok-pop { display:block; }
+  .tok-pop-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
+  .tok-pop-title { font-size:var(--fs-md); font-weight:600; color:var(--fg); }
+  .tok-pop-close { border:0; background:transparent; color:var(--faint); cursor:pointer; font-size:14px; line-height:1; padding:2px 4px; border-radius:4px; }
+  .tok-pop-close:hover { background:var(--panel-2); color:var(--fg); }
+  .tok-pop-sum { display:flex; align-items:baseline; justify-content:space-between; gap:8px; margin-bottom:8px; font-variant-numeric:tabular-nums; }
+  .tok-pop-pct { font-size:var(--fs-sm); font-weight:600; color:var(--fg); }
+  .tok-pop-total { font-size:var(--fs-xs); color:var(--faint); }
+  .tok-pop-bar { display:flex; height:8px; border-radius:4px; overflow:hidden; background:var(--panel-2); margin-bottom:10px; }
+  .tok-pop-bar span { display:block; height:100%; min-width:0; }
+  .tok-pop-list { display:flex; flex-direction:column; gap:6px; }
+  .tok-pop-row { display:flex; align-items:center; gap:8px; font-size:var(--fs-sm); }
+  .tok-dot { width:10px; height:10px; border-radius:2px; flex-shrink:0; }
+  .tok-pop-label { color:var(--fg); flex:1; min-width:0; }
+  .tok-pop-val { color:var(--muted); font-variant-numeric:tabular-nums; flex-shrink:0; }
+  .tok-inline {
+    margin-top:10px; padding:12px; background:var(--panel-3);
+    border:1px solid var(--border); border-radius:10px;
+  }
   .flow-wrap { padding:6px 8px 10px; overflow-x:auto; }
   .flow-note { color:var(--faint); font-size:var(--fs-label); margin-top:6px; line-height:1.4; }
   .flow-svg { display:block; }
@@ -705,6 +741,7 @@ function flowBlock(nodes, key){
   const fl=document.createElement("details"); fl.className="flow"; fl.open=!flowClosed.has(fkey);
   const sm=document.createElement("summary");
   sm.append(elp("flow-title","时序图"), elp("flow-sub","实线=调用 / 发送 · 虚线=返回 / 结果 · 点击查看详情"));
+  const tok=flowTokensEl(nodes); if(tok) sm.appendChild(tok);
   fl.appendChild(sm);
   const wrap=elp("flow-wrap"); fl.appendChild(wrap);
   const build=()=>{ if(wrap.dataset.built) return; wrap.dataset.built="1";
@@ -713,6 +750,221 @@ function flowBlock(nodes, key){
   if(fl.open) build();
   fl.addEventListener("toggle", ()=>{ if(fl.open){ flowClosed.delete(fkey); build(); } else flowClosed.add(fkey); });
   return fl;
+}
+
+/* ---------------- per-turn token usage ----------------
+   Cursor exposes input/output/cache_* on afterAgentResponse/stop.
+   Claude Code does not — usage lives on assistant rows in transcript_path.
+   UI mirrors Cursor's Context Usage card: total + segmented bar + category list.
+   Categories are API usage slices (hooks don't expose System/Rules/Skills splits). */
+const txCache = new Map(); // path -> {text, promise}
+const USAGE_CATS = [
+  { key:"input", label:"输入", color:"#8b939e" },
+  { key:"cacheWrite", label:"Cache 写入", color:"#7c6af0" },
+  { key:"cacheRead", label:"Cache 读取", color:"#c2410c" },
+  { key:"output", label:"输出", color:"#2563eb" },
+];
+function fmtTok(n){
+  n=Number(n)||0;
+  if(n>=1e6) return (n/1e6).toFixed(n>=1e7?0:1).replace(/\.0$/,"")+"M";
+  if(n>=1000) return (n/1000).toFixed(n>=10000?0:1).replace(/\.0$/,"")+"k";
+  return String(Math.round(n));
+}
+function emptyUsage(){ return { input:0, output:0, cacheRead:0, cacheWrite:0 }; }
+function usageTotal(u){ return u.input+u.output+u.cacheRead+u.cacheWrite; }
+function usageParts(u){
+  return USAGE_CATS.map(c=>({ ...c, value:Number(u[c.key])||0 })).filter(p=>p.value>0);
+}
+function usageBar(parts, total, cls){
+  const bar=elp(cls||"tok-pop-bar");
+  if(!total){ return bar; }
+  parts.forEach(p=>{
+    const seg=document.createElement("span");
+    seg.style.background=p.color;
+    seg.style.flex=String(p.value);
+    seg.title=p.label+" · "+p.value.toLocaleString();
+    bar.appendChild(seg);
+  });
+  return bar;
+}
+function usageFromEvs(evs){
+  let best=null, bestScore=-1;
+  for(const ev of evs){
+    const has = ev.input_tokens!=null || ev.output_tokens!=null ||
+      ev.cache_read_tokens!=null || ev.cache_write_tokens!=null ||
+      ev.cache_read_input_tokens!=null || ev.cache_creation_input_tokens!=null;
+    if(!has) continue;
+    const u={
+      input:Number(ev.input_tokens)||0,
+      output:Number(ev.output_tokens)||0,
+      cacheRead:Number(ev.cache_read_tokens??ev.cache_read_input_tokens)||0,
+      cacheWrite:Number(ev.cache_write_tokens??ev.cache_creation_input_tokens)||0,
+    };
+    const score=usageTotal(u);
+    if(score>bestScore){ best=u; bestScore=score; }
+  }
+  return best && bestScore>0 ? best : null;
+}
+function isToolResultUser(msg){
+  const c=msg&&msg.content;
+  return Array.isArray(c)&&c.length>0&&c.every(x=>x&&typeof x==="object"&&x.type==="tool_result");
+}
+function isRealUserPrompt(entry, msg){
+  if(!msg||msg.role!=="user") return false;
+  if(entry&&entry.isMeta) return false;
+  if(isToolResultUser(msg)) return false;
+  return true;
+}
+function usageFromTranscriptText(text, fromTs, toTs, promptId){
+  const byId=new Map();
+  let turn=null, matched=null, lastTurn=null;
+  for(const line of String(text).split("\n")){
+    if(!line) continue;
+    let o; try{ o=JSON.parse(line); }catch{ continue; }
+    if(o.isSidechain) continue;
+    const msg=o.message;
+    if(o.type==="user"&&isRealUserPrompt(o, msg)){
+      turn=new Map(); lastTurn=turn;
+      if(promptId&&o.promptId===promptId) matched=turn;
+      continue;
+    }
+    if(o.type!=="assistant"||!msg||!msg.usage) continue;
+    if(promptId){
+      if(matched===turn&&turn) turn.set(msg.id||o.uuid||("n"+turn.size), msg.usage);
+      continue;
+    }
+    const ts=o.timestamp||"";
+    const inRange=(!fromTs||!ts||ts>=fromTs)&&(!toTs||!ts||ts<=toTs);
+    if(fromTs||toTs){
+      if(!inRange) continue;
+      byId.set(msg.id||o.uuid||("n"+byId.size), msg.usage);
+    } else if(turn){
+      turn.set(msg.id||o.uuid||("n"+turn.size), msg.usage);
+    }
+  }
+  const src=promptId ? (matched||lastTurn) : ((fromTs||toTs) ? byId : lastTurn);
+  if(!src||!src.size) return null;
+  const u=emptyUsage();
+  for(const usage of src.values()){
+    u.input+=Number(usage.input_tokens)||0;
+    u.output+=Number(usage.output_tokens)||0;
+    u.cacheRead+=Number(usage.cache_read_input_tokens||usage.cache_read_tokens)||0;
+    u.cacheWrite+=Number(usage.cache_creation_input_tokens||usage.cache_write_tokens)||0;
+  }
+  return usageTotal(u)>0 ? u : null;
+}
+function turnPromptId(nodes){
+  for(const n of nodes) for(const ev of n.evs){ if(ev.prompt_id) return ev.prompt_id; }
+  return "";
+}
+function turnTimeRange(nodes){
+  let from="", to="";
+  for(const n of nodes) for(const ev of n.evs){
+    const ts=ev._ts; if(!ts) continue;
+    if(!from||ts<from) from=ts;
+    if(!to||ts>to) to=ts;
+  }
+  return { from, to };
+}
+function turnTranscriptPath(nodes){
+  for(const n of nodes) for(const ev of n.evs){
+    if(ev.transcript_path) return ev.transcript_path;
+    if(ev.agent_transcript_path) return ev.agent_transcript_path;
+  }
+  return "";
+}
+function closeAllTokenPops(except){
+  document.querySelectorAll(".flow-tokens.open").forEach(el=>{
+    if(el!==except) el.classList.remove("open");
+  });
+}
+function usageCardBody(parent, u, title){
+  const total=usageTotal(u);
+  const parts=usageParts(u);
+  let headEl=null;
+  if(title!==false){
+    headEl=elp("tok-pop-head");
+    headEl.appendChild(elp("tok-pop-title", title||"Token Usage"));
+    parent.appendChild(headEl);
+  }
+  const sum=elp("tok-pop-sum");
+  const top=parts.reduce((a,b)=>b.value>(a?a.value:0)?b:a, null);
+  sum.appendChild(elp("tok-pop-pct", top ? Math.round(top.value/total*100)+"% "+top.label : "本轮消耗"));
+  sum.appendChild(elp("tok-pop-total", "~"+fmtTok(total)+" Tokens"));
+  parent.appendChild(sum);
+  parent.appendChild(usageBar(parts, total, "tok-pop-bar"));
+  const list=elp("tok-pop-list");
+  USAGE_CATS.forEach(c=>{
+    const v=Number(u[c.key])||0;
+    if(!v) return;
+    const row=elp("tok-pop-row");
+    const dot=elp("tok-dot"); dot.style.background=c.color;
+    row.append(dot, elp("tok-pop-label", c.label), elp("tok-pop-val", fmtTok(v)));
+    list.appendChild(row);
+  });
+  parent.appendChild(list);
+  return headEl;
+}
+function fillTokensEl(el, u){
+  el.classList.remove("pending");
+  el.innerHTML="";
+  if(!u){ el.hidden=true; return; }
+  el.hidden=false;
+  const total=usageTotal(u);
+  const parts=usageParts(u);
+
+  const chip=elp("flow-tok-chip");
+  chip.appendChild(usageBar(parts, total, "flow-tok-minibar"));
+  chip.appendChild(elp("flow-tok-total", fmtTok(total)));
+  chip.title="点击查看本轮 token 分类";
+
+  const pop=elp("tok-pop");
+  const headEl=usageCardBody(pop, u, "Token Usage");
+  const x=document.createElement("button"); x.type="button"; x.className="tok-pop-close"; x.textContent="×"; x.setAttribute("aria-label","关闭");
+  if(headEl) headEl.appendChild(x);
+
+  const toggle=(e)=>{ e.preventDefault(); e.stopPropagation();
+    const willOpen=!el.classList.contains("open");
+    closeAllTokenPops(el);
+    el.classList.toggle("open", willOpen);
+  };
+  chip.addEventListener("click", toggle);
+  x.addEventListener("click", (e)=>{ e.preventDefault(); e.stopPropagation(); el.classList.remove("open"); });
+  pop.addEventListener("click", (e)=> e.stopPropagation());
+
+  el.append(chip, pop);
+}
+function loadTranscript(path){
+  let ent=txCache.get(path);
+  if(ent&&ent.text!=null) return Promise.resolve(ent.text);
+  if(ent&&ent.promise) return ent.promise;
+  const promise=fetch("/api/transcript-raw?path="+encodeURIComponent(path))
+    .then(r=>{ if(!r.ok) throw new Error(r.statusText); return r.text(); })
+    .then(text=>{ txCache.set(path,{text}); return text; })
+    .catch(err=>{ txCache.delete(path); throw err; });
+  txCache.set(path,{promise});
+  return promise;
+}
+function flowTokensEl(nodes){
+  const evs=nodes.flatMap(n=>n.evs);
+  const el=elp("flow-tokens");
+  const direct=usageFromEvs(evs);
+  if(direct){ fillTokensEl(el, direct); return el; }
+  const path=turnTranscriptPath(nodes);
+  if(!path) return null;
+  const {from,to}=turnTimeRange(nodes);
+  const promptId=turnPromptId(nodes);
+  const cached=txCache.get(path);
+  if(cached&&cached.text!=null){
+    fillTokensEl(el, usageFromTranscriptText(cached.text, from, to, promptId));
+    return el;
+  }
+  el.classList.add("pending");
+  const chip=elp("flow-tok-chip"); chip.appendChild(elp("flow-tok-total","…")); el.appendChild(chip);
+  loadTranscript(path).then(text=>{
+    fillTokensEl(el, usageFromTranscriptText(text, from, to, promptId));
+  }).catch(()=>{ el.hidden=true; });
+  return el;
 }
 
 /* ---------------- rich detail renderers ---------------- */
@@ -812,6 +1064,14 @@ function renderRich(evs, cat, opts){
     const txt=pick(evs,["prompt","text","message","thinking","last_assistant_message"]);
     const s=section(cat==="prompt"?"User prompt":cat==="response"?"Agent response":"Agent thinking", cat);
     if(txt!=null){ s.appendChild(elp("prose "+cat, String(txt))); } else { s.appendChild(elp("empty","(no text)")); }
+    if(cat==="response"){
+      const u=usageFromEvs(evs);
+      if(u){
+        const card=elp("tok-inline");
+        usageCardBody(card, u, "Token Usage");
+        s.appendChild(card);
+      }
+    }
     out.appendChild(s);
   }
   else if(cat==="shell"){
@@ -1147,7 +1407,8 @@ function addEvent(ev){
 
 const HINT_HTML = "<b>Multi-engine:</b> tag each agent's hooks with a source (cursor / claude / codex / …) and they all stream here. "+
   "<b>Captured:</b> tool calls, shell, file read+edit, MCP, subagent, prompt, thought, response. "+
-  "<b>Not captured</b> (platform limit): the full prompt sent to the LLM, per-token reasoning, exact token usage.";
+  "<b>Not captured</b> (platform limit): the full prompt sent to the LLM, per-token reasoning. "+
+  "Token totals shown on each turn come from Cursor hook fields or Claude transcript usage rows.";
 
 async function boot(){
   renderChips(); renderSrcChips();
@@ -1188,7 +1449,10 @@ function wireDropdown(dropId, btnId){
   };
 }
 wireDropdown("srcDrop","srcBtn"); wireDropdown("typeDrop","typeBtn");
-document.addEventListener("click",(e)=>{ if(!e.target.closest(".dropdown")) closeDropdowns(); });
+document.addEventListener("click",(e)=>{
+  if(!e.target.closest(".dropdown")) closeDropdowns();
+  if(!e.target.closest(".flow-tokens")) closeAllTokenPops();
+});
 $("list").addEventListener("scroll",()=>{ const l=$("list"); const near=(view==="tree") ? (l.scrollTop<48) : ((l.scrollHeight-l.scrollTop-l.clientHeight)<48); if(near!==follow) setFollowUI(near); });
 
 boot();

@@ -69,15 +69,86 @@ function readStdin() {
   });
 }
 
+function isToolResultUser(msg) {
+  const content = msg && msg.content;
+  return Array.isArray(content) && content.length > 0 &&
+    content.every((c) => c && typeof c === "object" && c.type === "tool_result");
+}
+
+function isRealUserPrompt(entry, msg) {
+  if (!msg || msg.role !== "user") return false;
+  if (entry && entry.isMeta) return false; // skill / system injections
+  if (isToolResultUser(msg)) return false;
+  return true;
+}
+
+// Claude Code hooks don't include token usage; the transcript does (per assistant
+// message). Aggregate one turn — prefer matching prompt_id, else the latest real
+// user prompt. Dedup by message.id (one API response may span multiple lines).
+function usageFromClaudeTranscript(transcriptPath, promptId) {
+  try {
+    if (!transcriptPath || !fs.existsSync(transcriptPath)) return null;
+    const text = fs.readFileSync(transcriptPath, "utf8");
+    let turn = null;
+    let matched = null;
+    for (const line of text.split("\n")) {
+      if (!line) continue;
+      let o;
+      try { o = JSON.parse(line); } catch { continue; }
+      if (o.isSidechain) continue;
+      const msg = o.message;
+      if (o.type === "user" && isRealUserPrompt(o, msg)) {
+        turn = new Map();
+        if (promptId && o.promptId === promptId) matched = turn;
+        continue;
+      }
+      if (turn && o.type === "assistant" && msg && msg.usage) {
+        turn.set(msg.id || o.uuid || ("n" + turn.size), msg.usage);
+      }
+    }
+    const src = matched || turn;
+    if (!src || !src.size) return null;
+    const out = {
+      input_tokens: 0,
+      output_tokens: 0,
+      cache_read_tokens: 0,
+      cache_write_tokens: 0,
+    };
+    for (const u of src.values()) {
+      out.input_tokens += Number(u.input_tokens) || 0;
+      out.output_tokens += Number(u.output_tokens) || 0;
+      out.cache_read_tokens += Number(u.cache_read_input_tokens || u.cache_read_tokens) || 0;
+      out.cache_write_tokens += Number(u.cache_creation_input_tokens || u.cache_write_tokens) || 0;
+    }
+    return out;
+  } catch {
+    return null;
+  }
+}
+
+function attachUsageFromTranscript(ev) {
+  const name = String(ev._event || "");
+  if (!/^stop$/i.test(name) && !/^subagentstop$/i.test(name)) return;
+  if (ev.input_tokens != null || ev.output_tokens != null) return; // Cursor already has these
+  const tp = ev.transcript_path || ev.agent_transcript_path;
+  const usage = usageFromClaudeTranscript(tp, ev.prompt_id);
+  if (!usage) return;
+  ev.input_tokens = usage.input_tokens;
+  ev.output_tokens = usage.output_tokens;
+  ev.cache_read_tokens = usage.cache_read_tokens;
+  ev.cache_write_tokens = usage.cache_write_tokens;
+}
+
 function archiveTranscript(ev) {
   try {
-    const conv = safeName(ev.conversation_id, "unknown");
-    if ((ev._event === "stop" || ev._event === "sessionEnd") &&
+    const conv = safeName(ev.conversation_id || ev.session_id, "unknown");
+    const evName = String(ev._event || "");
+    if (/^(stop|sessionend)$/i.test(evName) &&
         ev.transcript_path && fs.existsSync(ev.transcript_path)) {
       fs.mkdirSync(TX_DIR, { recursive: true });
       fs.copyFileSync(ev.transcript_path, path.join(TX_DIR, conv + ".jsonl"));
     }
-    if (ev._event === "subagentStop" &&
+    if (/^subagentstop$/i.test(evName) &&
         ev.agent_transcript_path && fs.existsSync(ev.agent_transcript_path)) {
       const sub = safeName(ev.subagent_id || ev.tool_call_id, "sub");
       const dir = path.join(TX_DIR, conv);
@@ -111,6 +182,7 @@ async function main() {
   if (ev.cursor_version && argSource && argSource !== "cursor") { allow(); process.exit(0); }
 
   try {
+    attachUsageFromTranscript(ev);
     fs.mkdirSync(OBS_DIR, { recursive: true });
     rotateIfLarge();
     fs.appendFileSync(EVENTS_FILE, JSON.stringify(truncateStrings(ev, 0)) + "\n");

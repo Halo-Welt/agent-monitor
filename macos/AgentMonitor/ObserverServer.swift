@@ -176,6 +176,19 @@ final class ObserverServer {
             return respond(connection, status: 200, type: "text/plain; charset=utf-8", body: body)
         }
 
+        // Read an absolute transcript JSONL (Claude Code / archived) so the panel
+        // can reconstruct per-turn token usage that hooks don't include.
+        if path == "/api/transcript-raw" && method == "GET" {
+            let rawPath = request.query["path"] ?? ""
+            guard let resolved = Self.allowedTranscriptURL(rawPath) else {
+                return respond(connection, status: 400, type: "text/plain", body: "bad path")
+            }
+            guard let body = try? String(contentsOf: resolved, encoding: .utf8) else {
+                return respond(connection, status: 404, type: "text/plain", body: "not found")
+            }
+            return respond(connection, status: 200, type: "text/plain; charset=utf-8", body: body)
+        }
+
         if path == "/api/session/delete" && method == "POST" {
             let key = request.query["key"] ?? ""
             guard !key.isEmpty else {
@@ -204,6 +217,20 @@ final class ObserverServer {
         }
 
         respond(connection, status: 404, type: "text/plain", body: "not found")
+    }
+
+    /// Absolute path must stay under the user's home and look like a Claude /
+    /// observer transcript (.jsonl). Rejects path traversal.
+    private static func allowedTranscriptURL(_ raw: String) -> URL? {
+        guard !raw.isEmpty else { return nil }
+        let home = FileManager.default.homeDirectoryForCurrentUser.standardizedFileURL
+        let url = URL(fileURLWithPath: raw).standardizedFileURL
+        let path = url.path
+        guard path.hasPrefix(home.path + "/") else { return nil }
+        guard path.lowercased().hasSuffix(".jsonl") else { return nil }
+        let allowed = path.contains("/.claude/") || path.contains("/.cursor/observer/transcripts/")
+        guard allowed else { return nil }
+        return url
     }
 
     private func serveFile(_ connection: NWConnection, name: String, type: String) {
