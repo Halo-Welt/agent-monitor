@@ -18,12 +18,17 @@
     --ok:#1a7f37; --fail:#cf222e; --run:#9a6700;
     --c-prompt:#2563eb; --c-response:#1a7f37; --c-thought:#6d5bd0; --c-tool:#9a6700;
     --c-shell:#c0392b; --c-mcp:#1b7c83; --c-file:#a83d7a; --c-subagent:#b45309; --c-lifecycle:#6e7781;
-    --mono:"PingFang SC","PingFang TC",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Helvetica,Arial,sans-serif;
+    --mono:"SF Mono","Menlo","Monaco","Consolas","PingFang SC","PingFang TC",monospace;
     --sans:"PingFang SC","PingFang TC",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Helvetica,Arial,sans-serif;
     /* type scale — one ramp for the whole panel */
     --fs-label:10px; --fs-xs:11px; --fs-sm:12px; --fs-md:13px; --fs-lg:14px;
     --lh:1.5; --lh-relaxed:1.6; --tracking-label:.04em;
   }
+  /* CJK glyphs are visually denser than Latin letters at the same font-size —
+     the smallest chrome tier (labels/tags/badges) reads as too small once it
+     carries Chinese words. Bump just that tier, and drop the Latin-oriented
+     letter-spacing that looks like unwanted gaps between Chinese characters. */
+  html[lang="zh-CN"] { --fs-label:11px; --fs-xs:12px; --tracking-label:0; }
   * { box-sizing:border-box; }
   button, input, select, textarea { font-family:var(--sans); font-size:var(--fs-sm); line-height:var(--lh); }
   html,body { height:100%; }
@@ -317,7 +322,7 @@
 <body>
 <header>
   <div class="topbar">
-    <div class="brand"><h1>Agent Monitor</h1><span class="sub">live</span></div>
+    <div class="brand"><h1>Agent Monitor</h1><span class="sub" id="brandSub">live</span></div>
     <div class="spacer"></div>
     <span class="pill"><span id="dot" class="dot off"></span><span id="conn">connecting</span></span>
     <span class="pill" id="count">0 events</span>
@@ -326,26 +331,34 @@
       <button id="btnTl">Timeline</button>
       <button id="btnHist">History</button>
     </div>
-    <div id="followBtn" class="toggle on" title="Auto-scroll to newest events"><span class="sw"></span><span>Follow</span></div>
+    <div id="followBtn" class="toggle on" title="Auto-scroll to newest events"><span class="sw"></span><span id="followLabel">Follow</span></div>
+    <div class="seg" id="langSeg" title="Switch UI language">
+      <button id="langBtnZh" data-lang="zh">中文</button>
+      <button id="langBtnEn" data-lang="en">EN</button>
+    </div>
   </div>
   <div class="filterbar">
     <input type="text" id="search" placeholder="filter by text…" />
     <select id="session"><option value="">All sessions</option></select>
     <div class="dropdown" id="srcDrop">
-      <button class="dd-btn" id="srcBtn" type="button"><span class="flabel">source</span><span class="dd-val" id="srcVal">all</span><span class="dd-caret">▾</span></button>
+      <button class="dd-btn" id="srcBtn" type="button"><span class="flabel" id="srcFlabel">source</span><span class="dd-val" id="srcVal">all</span><span class="dd-caret">▾</span></button>
       <div class="dd-menu" id="srcMenu"></div>
     </div>
     <div class="dropdown" id="typeDrop">
-      <button class="dd-btn" id="typeBtn" type="button"><span class="flabel">type</span><span class="dd-val" id="typeVal">all</span><span class="dd-caret">▾</span></button>
+      <button class="dd-btn" id="typeBtn" type="button"><span class="flabel" id="typeFlabel">type</span><span class="dd-val" id="typeVal">all</span><span class="dd-caret">▾</span></button>
       <div class="dd-menu" id="typeMenu"></div>
+    </div>
+    <div class="dropdown" id="projDrop">
+      <button class="dd-btn" id="projBtn" type="button"><span class="flabel" id="projFlabel">project</span><span class="dd-val" id="projVal">all</span><span class="dd-caret">▾</span></button>
+      <div class="dd-menu" id="projMenu"></div>
     </div>
   </div>
 </header>
 <main>
   <div id="list"></div>
   <div id="detail">
-    <div class="detail-head"><h2>Details</h2></div>
-    <div class="detail-body"><div id="detailBody" class="empty-state"><div class="empty-title">Select an event</div><div class="empty-body">Inspect prompts, tools, shell output, diffs, and raw hook payloads.</div></div></div>
+    <div class="detail-head"><h2 id="detailTitle">Details</h2></div>
+    <div class="detail-body"><div id="detailBody" class="empty-state"><div class="empty-title" id="emptyTitle">Select an event</div><div class="empty-body" id="emptyBody">Inspect prompts, tools, shell output, diffs, and raw hook payloads.</div></div></div>
   </div>
 </main>
 <script src="/gsap.min.js"></script>
@@ -379,6 +392,137 @@ function sourceColor(s){
   if(!dynSrcColor[s]){ const i=Object.keys(dynSrcColor).length; dynSrcColor[s]=SRC_PALETTE[i%SRC_PALETTE.length]; }
   return dynSrcColor[s];
 }
+const PROJ_PALETTE = ["#57606a","#0969da","#8250df","#1a7f37","#bf3989","#bc4c00","#1b7c83","#9a6700"];
+const dynProjColor = {};
+function projectColor(p){
+  if(!dynProjColor[p]){ const i=Object.keys(dynProjColor).length; dynProjColor[p]=PROJ_PALETTE[i%PROJ_PALETTE.length]; }
+  return dynProjColor[p];
+}
+
+// ---- i18n: UI chrome only (buttons/labels/filters/empty states/dialogs).
+// Detail-panel internals (field names like cwd/exit/status, section titles
+// like Diff/Error) intentionally stay English in both languages — see design
+// notes. Category tag chips (tool/shell/…) also stay as-is, unaffected.
+const LANG_KEY = "am:lang";
+const I18N = {
+  en: {
+    "topbar.sub":"live", "conn.connecting":"connecting", "conn.live":"live", "conn.offline":"offline",
+    "seg.tree":"Tree", "seg.timeline":"Timeline", "seg.history":"History",
+    "follow.label":"Follow", "follow.title":"Auto-scroll to newest events", "lang.title":"Switch UI language",
+    "search.placeholder":"filter by text…", "session.all":"All sessions",
+    "flabel.source":"source", "flabel.type":"type", "flabel.project":"project",
+    "dd.all":"all", "dd.selectAll":"select all", "dd.clear":"clear", "dd.waiting":"waiting for events…",
+    "proj.unknown":"(unknown)",
+    "detail.title":"Details",
+    "empty.selectTitle":"Select an event", "empty.selectBody":"Inspect prompts, tools, shell output, diffs, and raw hook payloads.",
+    "empty.noMatchesTitle":"No matches", "empty.noMatchesBody":"Nothing matches the current search or filters.",
+    "empty.noMatchesBodyHistory":"No sessions match the current filters.", "empty.clearFilters":"Clear filters",
+    "empty.waitingTitle":"Waiting for activity", "empty.waitingBody":"Run an agent with hooks installed — events stream in live.",
+    "empty.noSessionsTitle":"No sessions yet", "empty.noSessionsBody":"Start any agent with hooks installed — conversation history shows up here.",
+    "hist.replay":"Replay", "hist.json":"JSON", "hist.markdown":"Markdown", "hist.pin":"Pin", "hist.unpin":"Unpin",
+    "hist.hide":"Hide", "hist.unhide":"Unhide", "hist.delete":"Delete", "hist.clearAll":"Clear all history",
+    "hist.noPrompt":"(no user prompt)",
+    "confirm.deleteSession":"Delete this session's events and archived transcript?",
+    "confirm.deleteSessionWarn":"This cannot be undone.",
+    "confirm.clearAll1":"Clear ALL history?",
+    "confirm.clearAll1Body":"This wipes every captured event and archived transcript for ALL agents and projects. This cannot be undone.",
+    "confirm.clearAll2":"Final confirmation — really wipe everything?",
+    "alert.deleteFailed":"Delete failed: ", "alert.clearFailed":"Clear failed: ",
+    "hint.summary":"Capture notes",
+    "hint.body":"<b>Multi-engine:</b> tag each agent's hooks with a source (cursor / claude / codex / …) and they all stream here. "+
+      "<b>Captured:</b> tool calls, shell, file read+edit, MCP, subagent, prompt, thought, response. "+
+      "<b>Not captured</b> (platform limit): the full prompt sent to the LLM, per-token reasoning. "+
+      "Token totals shown on each turn come from Cursor hook fields or Claude transcript usage rows.",
+    "lane.user":"User", "lane.agent":"Agent", "lane.tool":"Tool", "lane.shell":"Shell", "lane.file":"File",
+    "lane.mcp":"MCP", "lane.subagent":"Subagent",
+    "flow.title":"Sequence Diagram",
+    "flow.legend":"solid = call / send · dashed = return / result · click for details",
+    "flow.note":"Model-internal, token-by-token steps aren't observable — this diagram is reconstructed only from captured hook events.",
+    "flow.fail":"failed", "flow.result":"result",
+    "token.title":"Token Usage", "token.chipTooltip":"Click to see this turn's token breakdown",
+    "token.close":"Close", "token.consumed":"this turn",
+    "usage.input":"Input", "usage.cacheWrite":"Cache Write", "usage.cacheRead":"Cache Read", "usage.output":"Output",
+  },
+  zh: {
+    "topbar.sub":"实时", "conn.connecting":"连接中", "conn.live":"实时", "conn.offline":"离线",
+    "seg.tree":"树状图", "seg.timeline":"时间线", "seg.history":"历史",
+    "follow.label":"跟随", "follow.title":"自动滚动到最新事件", "lang.title":"切换界面语言",
+    "search.placeholder":"按文本筛选…", "session.all":"全部会话",
+    "flabel.source":"来源", "flabel.type":"类型", "flabel.project":"项目",
+    "dd.all":"全部", "dd.selectAll":"全选", "dd.clear":"清空", "dd.waiting":"等待事件…",
+    "proj.unknown":"(未知项目)",
+    "detail.title":"详情",
+    "empty.selectTitle":"选择一个事件", "empty.selectBody":"查看 prompt、工具调用、shell 输出、diff 与原始 hook 数据。",
+    "empty.noMatchesTitle":"没有匹配结果", "empty.noMatchesBody":"没有匹配当前搜索或筛选条件的内容。",
+    "empty.noMatchesBodyHistory":"没有匹配当前筛选条件的会话。", "empty.clearFilters":"清除筛选",
+    "empty.waitingTitle":"等待活动", "empty.waitingBody":"运行已安装 hook 的 agent，事件会实时显示在这里。",
+    "empty.noSessionsTitle":"暂无会话", "empty.noSessionsBody":"运行任意已安装 hook 的 agent，对话历史会显示在这里。",
+    "hist.replay":"回放", "hist.json":"JSON", "hist.markdown":"Markdown", "hist.pin":"置顶", "hist.unpin":"取消置顶",
+    "hist.hide":"隐藏", "hist.unhide":"取消隐藏", "hist.delete":"删除", "hist.clearAll":"清空全部历史",
+    "hist.noPrompt":"(无用户 prompt)",
+    "confirm.deleteSession":"删除这个会话的事件和归档的 transcript？",
+    "confirm.deleteSessionWarn":"此操作不可撤销。",
+    "confirm.clearAll1":"清空全部历史？",
+    "confirm.clearAll1Body":"这会清除所有 agent、所有项目已捕获的事件和归档 transcript。此操作不可撤销。",
+    "confirm.clearAll2":"最终确认——真的要清空所有内容吗？",
+    "alert.deleteFailed":"删除失败：", "alert.clearFailed":"清空失败：",
+    "hint.summary":"采集说明",
+    "hint.body":"<b>多引擎：</b>给每个 agent 的 hook 打上来源标记（cursor / claude / codex / …），它们都会汇入这里。"+
+      "<b>已捕获：</b>工具调用、shell、文件读写、MCP、子 agent、prompt、思考、回复。"+
+      "<b>无法捕获</b>（平台限制）：发送给 LLM 的完整 prompt、逐 token 的推理过程。"+
+      "每轮显示的 token 总量来自 Cursor hook 字段或 Claude transcript 的用量记录。",
+    "lane.user":"用户", "lane.agent":"Agent", "lane.tool":"工具", "lane.shell":"Shell", "lane.file":"文件",
+    "lane.mcp":"MCP", "lane.subagent":"子Agent",
+    "flow.title":"时序图",
+    "flow.legend":"实线=调用 / 发送 · 虚线=返回 / 结果 · 点击查看详情",
+    "flow.note":"模型内部逐 token 步骤不可观测，此图仅基于已捕获的对话事件重建。",
+    "flow.fail":"失败", "flow.result":"结果",
+    "token.title":"Token 用量", "token.chipTooltip":"点击查看本轮 token 分类",
+    "token.close":"关闭", "token.consumed":"本轮消耗",
+    "usage.input":"输入", "usage.cacheWrite":"Cache 写入", "usage.cacheRead":"Cache 读取", "usage.output":"输出",
+  },
+};
+function detectLang(){
+  try{ const saved=localStorage.getItem(LANG_KEY); if(saved==="en"||saved==="zh") return saved; }catch{}
+  return (navigator.language||"").toLowerCase().startsWith("zh") ? "zh" : "en";
+}
+let LANG = detectLang();
+function t(key){ const d=I18N[LANG]||I18N.en; return (key in d) ? d[key] : (I18N.en[key] ?? key); }
+function fmtEventCount(n){ return LANG==="zh" ? n+" 个事件" : n+" events"; }
+function fmtSessionCount(total, hiddenN){
+  return LANG==="zh" ? total+" 个会话"+(hiddenN?(" · 已隐藏 "+hiddenN):"") : total+" sessions"+(hiddenN?(" · "+hiddenN+" hidden"):"");
+}
+function fmtHiddenLabel(n){ return LANG==="zh" ? "已隐藏（"+n+"）" : "Hidden ("+n+")"; }
+function fmtHistMeta(prompts, tools, dur){
+  return LANG==="zh" ? prompts+" 轮 · "+tools+" 次工具调用 · "+dur : prompts+" turns · "+tools+" tools · "+dur;
+}
+function fmtNodeCount(n){ return LANG==="zh" ? n+" 个节点" : n+" nodes"; }
+function fmtStepCount(n){ return LANG==="zh" ? n+" 步" : n+(n===1?" step":" steps"); }
+function applyStaticText(){
+  document.documentElement.lang = LANG==="zh" ? "zh-CN" : "en";
+  const set=(id,txt)=>{ const el=$(id); if(el) el.textContent=txt; };
+  set("brandSub", t("topbar.sub"));
+  set("conn", t("conn."+connLabelState));
+  set("btnTree", t("seg.tree")); set("btnTl", t("seg.timeline")); set("btnHist", t("seg.history"));
+  set("followLabel", t("follow.label"));
+  const followBtn=$("followBtn"); if(followBtn) followBtn.title=t("follow.title");
+  const langSeg=$("langSeg"); if(langSeg) langSeg.title=t("lang.title");
+  const langZh=$("langBtnZh"), langEn=$("langBtnEn");
+  if(langZh) langZh.classList.toggle("active", LANG==="zh");
+  if(langEn) langEn.classList.toggle("active", LANG==="en");
+  const searchEl=$("search"); if(searchEl) searchEl.placeholder=t("search.placeholder");
+  const sessEl=$("session"); if(sessEl && sessEl.options.length) sessEl.options[0].textContent=t("session.all");
+  set("srcFlabel", t("flabel.source")); set("typeFlabel", t("flabel.type")); set("projFlabel", t("flabel.project"));
+  set("detailTitle", t("detail.title"));
+  set("emptyTitle", t("empty.selectTitle")); set("emptyBody", t("empty.selectBody"));
+}
+function setLang(l){
+  LANG = l;
+  try{ localStorage.setItem(LANG_KEY, l); }catch{}
+  applyStaticText();
+  renderChips(); renderSrcChips(); renderProjChips();
+  render();
+}
 
 let events = [];
 let seen = new Set();
@@ -389,7 +533,10 @@ let follow = true;
 let selectedKey = null;
 const catFilter = new Set(CATS);
 const srcFilter = new Set();      // empty = all sources
+const projFilter = new Set();     // empty = all projects
 const knownSources = new Set();
+const knownProjects = new Set();
+let connLabelState = "connecting"; // "connecting" | "live" | "offline"
 
 // ---- History view state (pins/hidden persisted locally) ----
 function loadSet(k){ try{ return new Set(JSON.parse(localStorage.getItem(k)||"[]")); }catch{ return new Set(); } }
@@ -402,7 +549,7 @@ let replayKey = null;
 const stepsOpen = new Set();
 // The per-turn sequence diagram is expanded by default; remember which turns the
 // user manually collapsed so a re-render never silently re-expands them.
-const flowClosed = new Set();
+const flowOpen = new Set(); // details opened by the user; flow diagrams start collapsed
 
 // ---- GSAP-powered entrance/transition animations (graceful fallback) ----
 // GSAP is vendored locally at /gsap.min.js. If it fails to load or the user
@@ -443,6 +590,15 @@ function srcOf(ev){ if(ev && ev.cursor_version) return "cursor"; return (ev && e
 // Session identity: Cursor uses conversation_id; Claude Code has only session_id.
 // Fall back through both so each real session is grouped on its own.
 function sessionKeyOf(ev){ return ev.conversation_id || ev.session_id || (srcOf(ev)+":no-session"); }
+// Project identity: Cursor carries workspace_roots (multi-root array, use the
+// first entry); Claude/Codex/others carry a plain cwd. Grouped by raw path —
+// no smart merging of nested subdirectories of the same repo (kept simple).
+function projectOf(ev){
+  if(Array.isArray(ev.workspace_roots) && ev.workspace_roots.length) return ev.workspace_roots[0];
+  return ev.cwd || "";
+}
+function basename(p){ if(!p) return ""; const parts=String(p).replace(/\/+$/,"").split("/"); return parts[parts.length-1] || p; }
+function projLabel(p){ return p ? basename(p) : t("proj.unknown"); }
 function replyText(ev){ return ev.text || ev.message || ev.last_assistant_message || ev.thinking; }
 
 // normalized tool_input.command / path helpers (Claude/Codex nest under tool_input)
@@ -477,12 +633,50 @@ function summarize(ev){
   return ev._event + (ev.reason?" · "+ev.reason:"") + (ev.status?" · "+ev.status:"");
 }
 function keyOf(ev){ return ev.tool_use_id || ev.subagent_id || (ev._event+"|"+ev._ts+"|"+(ev.generation_id||"")); }
+// Cursor tags every event in a turn with the same generation_id, EXCEPT
+// afterAgentThought: each thought chunk gets its own "<base>-<index>-<rand>"
+// suffix on top of the turn's base id. Strip that suffix so all thoughts
+// group back into the turn they actually belong to.
+function turnGenId(ev){
+  const raw = ev.generation_id || ev.prompt_id || "";
+  const m = /^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})-\d+-[0-9a-z]+$/i.exec(raw);
+  return m ? m[1] : raw;
+}
+
+// beforeShellExecution/afterShellExecution and beforeMCPExecution/afterMCPExecution
+// never carry a tool_use_id (unlike the preToolUse/postToolUse pair captured for
+// the very same call), so keyOf() can't group them with their call and each fires
+// as its own singleton node — one shell/MCP call could show up as 3 separate rows
+// (preToolUse+postToolUse, plus a lone "before…" and a lone "after…"). Fold each
+// sidecar event into whichever same-turn, same-category node started closest to it
+// in time, so a single call stays a single node everywhere it's rendered.
+const EXEC_SIDECAR_EVENTS = new Set(["beforeshellexecution","aftershellexecution","beforemcpexecution","aftermcpexecution"]);
+function mergeExecutionSidecars(S){
+  const sidecarKeys=[], hosts=[];
+  for(const [k,n] of S.nodes){
+    const isSidecar = n.evs.every(e=> EXEC_SIDECAR_EVENTS.has(String(e._event||"").toLowerCase()));
+    if(isSidecar) sidecarKeys.push(k);
+    else if(n.cat==="shell"||n.cat==="mcp") hosts.push(n);
+  }
+  for(const k of sidecarKeys){
+    const sc = S.nodes.get(k);
+    const scTs = +new Date(sc.firstTs);
+    let best=null, bestDist=Infinity;
+    for(const h of hosts){
+      if(h.cat!==sc.cat || h.gen!==sc.gen) continue;
+      const d = Math.abs(+new Date(h.firstTs)-scTs);
+      if(d<bestDist){ bestDist=d; best=h; }
+    }
+    if(best && bestDist<10000){ best.evs.push(...sc.evs); S.nodes.delete(k); }
+  }
+}
 
 function build(){
   const filtered = events.filter(ev=>{
     if(ev._event==="_ping") return false;
     if(sessionFilter && sessionKeyOf(ev)!==sessionFilter) return false;
     if(srcFilter.size && !srcFilter.has(srcOf(ev))) return false;
+    if(projFilter.size && !projFilter.has(projectOf(ev))) return false;
     if(!catFilter.has(catOf(ev))) return false;
     if(search){ const hay=(ev._event+" "+srcOf(ev)+" "+summarize(ev)).toLowerCase(); if(!hay.includes(search.toLowerCase())) return false; }
     return true;
@@ -490,17 +684,19 @@ function build(){
   const sessions = new Map();
   for(const ev of filtered){
     const cid = sessionKeyOf(ev);
-    if(!sessions.has(cid)) sessions.set(cid,{ cid, src:srcOf(ev), model:ev.model||ev.model_id||"", nodes:new Map(), firstTs:ev._ts, lastTs:ev._ts });
+    if(!sessions.has(cid)) sessions.set(cid,{ cid, src:srcOf(ev), model:ev.model||ev.model_id||"", proj:projectOf(ev), nodes:new Map(), firstTs:ev._ts, lastTs:ev._ts });
     const S = sessions.get(cid);
     if(new Date(ev._ts) > new Date(S.lastTs)) S.lastTs = ev._ts;   // track most-recent activity for ordering
     if(ev.model||ev.model_id) S.model = ev.model||ev.model_id;
+    if(!S.proj){ const p=projectOf(ev); if(p) S.proj=p; }
     const k = keyOf(ev);
     // Turn id: Cursor tags each turn with generation_id; Claude Code has none but
     // shares one prompt_id across a turn's prompt → tools → stop. Fall back to it
     // so Claude turns group into a turnBlock and get a sequence diagram too.
-    if(!S.nodes.has(k)) S.nodes.set(k,{ key:cid+"::"+k, cat:catOf(ev), gen:ev.generation_id||ev.prompt_id||"", evs:[], firstTs:ev._ts });
+    if(!S.nodes.has(k)) S.nodes.set(k,{ key:cid+"::"+k, cat:catOf(ev), gen:turnGenId(ev), evs:[], firstTs:ev._ts });
     S.nodes.get(k).evs.push(ev);
   }
+  for(const S of sessions.values()) mergeExecutionSidecars(S);
   return sessions;
 }
 
@@ -531,7 +727,7 @@ function tag(cat, text){
 function srcBadge(src){ const b=document.createElement("span"); b.className="src-badge"; b.textContent=src; b.style.background=sourceColor(src); return b; }
 
 function render(){
-  $("count").textContent = events.filter(e=>e._event!=="_ping").length + " events";
+  $("count").textContent = fmtEventCount(events.filter(e=>e._event!=="_ping").length);
   const list = $("list");
   const atBottom = follow;
   const prevTop = list.scrollTop;
@@ -542,8 +738,8 @@ function render(){
     const n = renderHistory(frag);
     if(!n){
       frag.appendChild(filtersActive()
-        ? emptyState("No matches", "No sessions match the current filters.", { label:"Clear filters", onClick:clearFilters })
-        : emptyState("No sessions yet", "Start any agent with hooks installed — conversation history shows up here."));
+        ? emptyState(t("empty.noMatchesTitle"), t("empty.noMatchesBodyHistory"), { label:t("empty.clearFilters"), onClick:clearFilters })
+        : emptyState(t("empty.noSessionsTitle"), t("empty.noSessionsBody")));
     }
     list.innerHTML=""; list.appendChild(frag); animateEntrance(list);
     list.scrollTop = prevTop;   // history is a browse view; don't auto-jump
@@ -553,16 +749,21 @@ function render(){
   const sessions = build();
   if(sessions.size===0){
     frag.appendChild(filtersActive()
-      ? emptyState("No matches", "Nothing matches the current search or filters.", { label:"Clear filters", onClick:clearFilters })
-      : emptyState("Waiting for activity", "Run an agent with hooks installed — events stream in live."));
+      ? emptyState(t("empty.noMatchesTitle"), t("empty.noMatchesBody"), { label:t("empty.clearFilters"), onClick:clearFilters })
+      : emptyState(t("empty.waitingTitle"), t("empty.waitingBody")));
     list.innerHTML=""; list.appendChild(frag); return;
   }
   if(view==="timeline"){
-    const rows=[]; for(const S of sessions.values()) for(const n of S.nodes.values()) for(const ev of n.evs) rows.push(ev);
-    rows.sort((a,b)=> new Date(a._ts)-new Date(b._ts));
+    // One row per node, not per raw hook event — a single shell command fires
+    // preToolUse/beforeShellExecution/afterShellExecution/postToolUse, and listing
+    // each stage as its own near-identical row buried the signal in noise. build()
+    // already groups those via keyOf() (tool_use_id-based) for the tree view; reuse
+    // the same nodes here so one row = one call, with its full call+result on click.
+    const rows=[]; for(const S of sessions.values()) for(const n of S.nodes.values()) rows.push(n);
+    rows.sort((a,b)=> new Date(a.firstTs)-new Date(b.firstTs));
     const wrap=document.createElement("div"); wrap.className="tl";
     let lastSrc=null;
-    for(const ev of rows){ const s=srcOf(ev); wrap.appendChild(tlRow(ev, s!==lastSrc)); lastSrc=s; }
+    for(const n of rows){ const s=srcOf(n.evs[0]); wrap.appendChild(tlRow(n, s!==lastSrc)); lastSrc=s; }
     frag.appendChild(wrap);
   } else {
     // newest conversation on top: order sessions by most-recent activity
@@ -576,17 +777,17 @@ function render(){
   else list.scrollTop = prevTop;
 }
 
-function tlRow(ev, showSrc){
+function tlRow(node, showSrc){
   const row=document.createElement("div"); row.className="tlrow";
-  const k=(ev.conversation_id||"")+"::ev::"+ev._ts+"::"+ev._event; if(selectedKey===k) row.classList.add("sel");
+  const k=node.key; if(selectedKey===k) row.classList.add("sel");
   row.setAttribute("data-anim-key", k);
-  const c=catOf(ev);
-  const time=document.createElement("span"); time.className="time"; time.textContent=timeOf(ev._ts);
-  const lab=document.createElement("span"); lab.className="label"; lab.textContent=summarize(ev);
+  const time=document.createElement("span"); time.className="time"; time.textContent=timeOf(node.firstTs);
+  const lab=document.createElement("span"); lab.className="label"; lab.textContent=nodeLabel(node);
+  const meta=document.createElement("span"); meta.className="meta"; meta.textContent=nodeDuration(node);
   row.append(time);
-  if(showSrc) row.append(srcBadge(srcOf(ev)));   // only when the source changes — one badge per run, not per row
-  row.append(tag(c),lab);
-  row.onclick=()=>{ selectedKey=k; showDetail([ev], c); render(); };
+  if(showSrc) row.append(srcBadge(srcOf(node.evs[0])));   // only when the source changes — one badge per run, not per row
+  row.append(tag(node.cat),lab,meta);
+  row.onclick=()=>{ selectedKey=k; showDetail(node.evs, node.cat); render(); };
   return row;
 }
 
@@ -594,11 +795,16 @@ function treeSession(S){
   const d=document.createElement("details"); d.className="session"; d.open=true;
   const sm=document.createElement("summary");
   sm.appendChild(srcBadge(S.src));
-  const name=document.createElement("span"); name.className="sess-id"; name.textContent=String(S.cid).slice(0,8);
+  // Project is the primary way to find "which conversation is this" in a tool
+  // that watches every project at once — lead with it, not the session hash.
+  const proj=document.createElement("span"); proj.className="sess-id";
+  proj.textContent=S.proj?basename(S.proj):t("proj.unknown");
+  if(S.proj) proj.title=S.proj;
   const model=document.createElement("span"); model.className="sess-model"; model.textContent=S.model?("· "+S.model):"";
+  const id=document.createElement("span"); id.className="sess-model"; id.textContent="· "+String(S.cid).slice(0,8);
   const sp=document.createElement("span"); sp.style.flex="1";
-  const cnt=document.createElement("span"); cnt.className="meta"; cnt.textContent=S.nodes.size+" nodes";
-  sm.append(name,model,sp,cnt); d.appendChild(sm);
+  const cnt=document.createElement("span"); cnt.className="meta"; cnt.textContent=fmtNodeCount(S.nodes.size);
+  sm.append(proj,model,id,sp,cnt); d.appendChild(sm);
 
   const turns=new Map();
   for(const n of S.nodes.values()){ const g=n.gen||"—"; if(!turns.has(g)) turns.set(g,[]); turns.get(g).push(n); }
@@ -624,7 +830,7 @@ function turnBlock(nodes, key){
     st.addEventListener("toggle", ()=>{ if(st.open) stepsOpen.add(key); else stepsOpen.delete(key); });
     const sm=document.createElement("summary");
     const cats=[...new Set(middle.map(n=>n.cat))];
-    const cnt=elp("steps-count", middle.length+(middle.length===1?" step":" steps"));
+    const cnt=elp("steps-count", fmtStepCount(middle.length));
     const cs=elp("steps-cats", cats.join(" · "));
     sm.append(cnt, cs); st.appendChild(sm);
     const b=document.createElement("div"); b.className="steps-body";
@@ -656,7 +862,8 @@ function nodeEl(node){
    tool/thought/mcp steps, assistant reply out. */
 const SVGNS = "http://www.w3.org/2000/svg";
 function svgEl(tag, attrs){ const e=document.createElementNS(SVGNS,tag); if(attrs) for(const k in attrs){ if(attrs[k]!=null&&attrs[k]!=="") e.setAttribute(k, attrs[k]); } return e; }
-const FLOW_LANES = [["tool","工具"],["shell","Shell"],["file","文件"],["mcp","MCP"],["subagent","子Agent"]];
+const FLOW_LANE_CATS = ["tool","shell","file","mcp","subagent"];
+function laneLabel(cat){ return t("lane."+cat); }
 
 // Cheap: decide lanes + ordered messages without touching the DOM, so we can
 // skip empty turns and defer the expensive SVG build until the user expands.
@@ -665,9 +872,9 @@ function turnFlowModel(nodes){
   const addLane=(id,label)=>{ laneIndex[id]=lanes.length; lanes.push({id,label}); };
   // Always draw the full cast — even lanes this turn didn't touch — so the
   // structure stays fixed and turns are visually comparable at a glance.
-  addLane("user","用户");
-  addLane("agent","Agent");
-  for(const [cat,label] of FLOW_LANES) addLane(cat,label);
+  addLane("user",laneLabel("user"));
+  addLane("agent",laneLabel("agent"));
+  for(const cat of FLOW_LANE_CATS) addLane(cat,laneLabel(cat));
   const messages=[];
   for(const n of nodes){
     const c=n.cat;
@@ -677,7 +884,7 @@ function turnFlowModel(nodes){
     else if(laneIndex[c]!=null){
       messages.push({from:"agent",to:c,cat:c,label:nodeLabel(n),node:n});
       const st=nodeState(n);
-      if(st!=="run"){ const dur=nodeDuration(n); messages.push({from:c,to:"agent",cat:c,dashed:true,label:(st==="fail"?"失败":"结果")+(dur?(" · "+dur):""),node:n}); }
+      if(st!=="run"){ const dur=nodeDuration(n); messages.push({from:c,to:"agent",cat:c,dashed:true,label:(st==="fail"?t("flow.fail"):t("flow.result"))+(dur?(" · "+dur):""),node:n}); }
     }
     // lifecycle / unknown middle events are noise here — skip them
   }
@@ -738,17 +945,17 @@ function flowBlock(nodes, key){
   const model = turnFlowModel(nodes);
   if(!model.messages.length) return null;
   const fkey = key+"::flow";
-  const fl=document.createElement("details"); fl.className="flow"; fl.open=!flowClosed.has(fkey);
+  const fl=document.createElement("details"); fl.className="flow"; fl.open=flowOpen.has(fkey);
   const sm=document.createElement("summary");
-  sm.append(elp("flow-title","时序图"), elp("flow-sub","实线=调用 / 发送 · 虚线=返回 / 结果 · 点击查看详情"));
+  sm.append(elp("flow-title",t("flow.title")), elp("flow-sub",t("flow.legend")));
   const tok=flowTokensEl(nodes); if(tok) sm.appendChild(tok);
   fl.appendChild(sm);
   const wrap=elp("flow-wrap"); fl.appendChild(wrap);
   const build=()=>{ if(wrap.dataset.built) return; wrap.dataset.built="1";
     wrap.appendChild(flowSvg(model));
-    wrap.appendChild(elp("flow-note","模型内部逐 token 步骤不可观测，此图仅基于已捕获的对话事件重建。")); };
+    wrap.appendChild(elp("flow-note",t("flow.note"))); };
   if(fl.open) build();
-  fl.addEventListener("toggle", ()=>{ if(fl.open){ flowClosed.delete(fkey); build(); } else flowClosed.add(fkey); });
+  fl.addEventListener("toggle", ()=>{ if(fl.open){ flowOpen.add(fkey); build(); } else flowOpen.delete(fkey); });
   return fl;
 }
 
@@ -759,11 +966,12 @@ function flowBlock(nodes, key){
    Categories are API usage slices (hooks don't expose System/Rules/Skills splits). */
 const txCache = new Map(); // path -> {text, promise}
 const USAGE_CATS = [
-  { key:"input", label:"输入", color:"#8b939e" },
-  { key:"cacheWrite", label:"Cache 写入", color:"#7c6af0" },
-  { key:"cacheRead", label:"Cache 读取", color:"#c2410c" },
-  { key:"output", label:"输出", color:"#2563eb" },
+  { key:"input", color:"#8b939e" },
+  { key:"cacheWrite", color:"#7c6af0" },
+  { key:"cacheRead", color:"#c2410c" },
+  { key:"output", color:"#2563eb" },
 ];
+function usageLabel(key){ return t("usage."+key); }
 function fmtTok(n){
   n=Number(n)||0;
   if(n>=1e6) return (n/1e6).toFixed(n>=1e7?0:1).replace(/\.0$/,"")+"M";
@@ -773,7 +981,7 @@ function fmtTok(n){
 function emptyUsage(){ return { input:0, output:0, cacheRead:0, cacheWrite:0 }; }
 function usageTotal(u){ return u.input+u.output+u.cacheRead+u.cacheWrite; }
 function usageParts(u){
-  return USAGE_CATS.map(c=>({ ...c, value:Number(u[c.key])||0 })).filter(p=>p.value>0);
+  return USAGE_CATS.map(c=>({ ...c, label:usageLabel(c.key), value:Number(u[c.key])||0 })).filter(p=>p.value>0);
 }
 function usageBar(parts, total, cls){
   const bar=elp(cls||"tok-pop-bar");
@@ -884,12 +1092,12 @@ function usageCardBody(parent, u, title){
   let headEl=null;
   if(title!==false){
     headEl=elp("tok-pop-head");
-    headEl.appendChild(elp("tok-pop-title", title||"Token Usage"));
+    headEl.appendChild(elp("tok-pop-title", title||t("token.title")));
     parent.appendChild(headEl);
   }
   const sum=elp("tok-pop-sum");
   const top=parts.reduce((a,b)=>b.value>(a?a.value:0)?b:a, null);
-  sum.appendChild(elp("tok-pop-pct", top ? Math.round(top.value/total*100)+"% "+top.label : "本轮消耗"));
+  sum.appendChild(elp("tok-pop-pct", top ? Math.round(top.value/total*100)+"% "+top.label : t("token.consumed")));
   sum.appendChild(elp("tok-pop-total", "~"+fmtTok(total)+" Tokens"));
   parent.appendChild(sum);
   parent.appendChild(usageBar(parts, total, "tok-pop-bar"));
@@ -916,11 +1124,11 @@ function fillTokensEl(el, u){
   const chip=elp("flow-tok-chip");
   chip.appendChild(usageBar(parts, total, "flow-tok-minibar"));
   chip.appendChild(elp("flow-tok-total", fmtTok(total)));
-  chip.title="点击查看本轮 token 分类";
+  chip.title=t("token.chipTooltip");
 
   const pop=elp("tok-pop");
-  const headEl=usageCardBody(pop, u, "Token Usage");
-  const x=document.createElement("button"); x.type="button"; x.className="tok-pop-close"; x.textContent="×"; x.setAttribute("aria-label","关闭");
+  const headEl=usageCardBody(pop, u, t("token.title"));
+  const x=document.createElement("button"); x.type="button"; x.className="tok-pop-close"; x.textContent="×"; x.setAttribute("aria-label",t("token.close"));
   if(headEl) headEl.appendChild(x);
 
   const toggle=(e)=>{ e.preventDefault(); e.stopPropagation();
@@ -982,19 +1190,19 @@ function emptyState(title, body, action){
   return wrap;
 }
 function filtersActive(){
-  return !!(search || sessionFilter || srcFilter.size || catFilter.size!==CATS.length);
+  return !!(search || sessionFilter || srcFilter.size || projFilter.size || catFilter.size!==CATS.length);
 }
 function clearFilters(){
-  search=""; sessionFilter=""; srcFilter.clear();
+  search=""; sessionFilter=""; srcFilter.clear(); projFilter.clear();
   catFilter.clear(); CATS.forEach(c=>catFilter.add(c));
   const searchEl=$("search"); if(searchEl) searchEl.value="";
   const sessEl=$("session"); if(sessEl) sessEl.value="";
-  renderChips(); renderSrcChips(); render();
+  renderChips(); renderSrcChips(); renderProjChips(); render();
 }
 function hintBlock(){
   const d=document.createElement("details"); d.className="hint";
-  const sm=document.createElement("summary"); sm.textContent="Capture notes";
-  const body=elp("hint-body"); body.innerHTML=HINT_HTML; d.append(sm, body);
+  const sm=document.createElement("summary"); sm.textContent=t("hint.summary");
+  const body=elp("hint-body"); body.innerHTML=t("hint.body"); d.append(sm, body);
   return d;
 }
 function section(title, cat){ const s=elp("d-section"); const h=elp("d-title"); if(cat) h.appendChild(tag(cat)); const sp=document.createElement("span"); sp.textContent=title; h.appendChild(sp); s.appendChild(h); return s; }
@@ -1068,7 +1276,7 @@ function renderRich(evs, cat, opts){
       const u=usageFromEvs(evs);
       if(u){
         const card=elp("tok-inline");
-        usageCardBody(card, u, "Token Usage");
+        usageCardBody(card, u, t("token.title"));
         s.appendChild(card);
       }
     }
@@ -1189,11 +1397,13 @@ function historySessions(){
   for(const ev of events){
     if(ev._event==="_ping") continue;
     if(srcFilter.size && !srcFilter.has(srcOf(ev))) continue;
+    if(projFilter.size && !projFilter.has(projectOf(ev))) continue;
     const key=sessionKeyOf(ev);
     let S=map.get(key);
-    if(!S){ S={ key, src:srcOf(ev), model:"", title:"", start:ev._ts, end:ev._ts, prompts:0, tools:0, lastReply:"", lastReplyTs:0, status:"", evs:[] }; map.set(key,S); }
+    if(!S){ S={ key, src:srcOf(ev), model:"", proj:projectOf(ev), title:"", start:ev._ts, end:ev._ts, prompts:0, tools:0, lastReply:"", lastReplyTs:0, status:"", evs:[] }; map.set(key,S); }
     S.evs.push(ev);
     if(ev.model||ev.model_id) S.model=ev.model||ev.model_id;
+    if(!S.proj){ const p=projectOf(ev); if(p) S.proj=p; }
     if(ev._ts<S.start) S.start=ev._ts;
     if(ev._ts>S.end) S.end=ev._ts;
     const c=catOf(ev);
@@ -1225,16 +1435,16 @@ function renderHistory(frag){
   pinned.sort(byRecent); normal.sort(byRecent); hiddenArr.sort(byRecent);
 
   const bar=elp("hist-bar");
-  bar.appendChild(elp("hist-count",(pinned.length+normal.length)+" sessions"+(hiddenArr.length?(" · "+hiddenArr.length+" hidden"):"")));
+  bar.appendChild(elp("hist-count",fmtSessionCount(pinned.length+normal.length, hiddenArr.length)));
   const sp=document.createElement("span"); sp.style.flex="1"; bar.appendChild(sp);
-  bar.appendChild(mkBtn("Clear all history", clearAll, "danger"));
+  bar.appendChild(mkBtn(t("hist.clearAll"), clearAll, "danger"));
   frag.appendChild(bar);
 
   for(const S of pinned) frag.appendChild(histCard(S));
   for(const S of normal) frag.appendChild(histCard(S));
   if(hiddenArr.length){
     const det=document.createElement("details"); det.className="hist-hidden";
-    const sm=document.createElement("summary"); sm.textContent="Hidden ("+hiddenArr.length+")"; det.appendChild(sm);
+    const sm=document.createElement("summary"); sm.textContent=fmtHiddenLabel(hiddenArr.length); det.appendChild(sm);
     for(const S of hiddenArr) det.appendChild(histCard(S));
     frag.appendChild(det);
   }
@@ -1248,25 +1458,31 @@ function histCard(S){
 
   const head=elp("hist-head");
   head.appendChild(srcBadge(S.src));
-  head.appendChild(elp("hist-id", String(S.key).slice(0,8)));
+  // Project first and bold — same rationale as treeSession(): with many
+  // projects feeding one global panel, the project name is what a user
+  // scans for, not the meaningless session hash.
+  const projTag=elp("hist-id", S.proj?basename(S.proj):t("proj.unknown"));
+  if(S.proj) projTag.title=S.proj;
+  head.appendChild(projTag);
   if(S.model) head.appendChild(elp("hist-model","· "+S.model));
+  head.appendChild(elp("hist-model","· "+String(S.key).slice(0,8)));
   const sp=document.createElement("span"); sp.style.flex="1"; head.appendChild(sp);
   if(pins.has(S.key)) head.appendChild(elp("hist-pin","★"));
   head.appendChild(elp("hist-when", fmtWhen(S.end)));
   c.appendChild(head);
 
-  c.appendChild(elp("hist-title", S.title || "(no user prompt)"));
-  c.appendChild(elp("hist-meta", S.prompts+" turns · "+S.tools+" tools · "+durBetween(S.start,S.end)));
+  c.appendChild(elp("hist-title", S.title || t("hist.noPrompt")));
+  c.appendChild(elp("hist-meta", fmtHistMeta(S.prompts, S.tools, durBetween(S.start,S.end))));
   if(S.lastReply) c.appendChild(elp("hist-reply","↩ "+S.lastReply));
 
   const acts=elp("hist-acts");
   acts.append(
-    mkBtn("Replay", ()=>{ replayKey=S.key; showReplay(S); render(); }),
-    mkBtn("JSON", ()=>exportSession(S,"json")),
-    mkBtn("Markdown", ()=>exportSession(S,"md")),
-    mkBtn(pins.has(S.key)?"Unpin":"Pin", ()=>togglePin(S.key)),
-    mkBtn(hidden.has(S.key)?"Unhide":"Hide", ()=>toggleHidden(S.key)),
-    mkBtn("Delete", ()=>deleteSession(S.key), "danger")
+    mkBtn(t("hist.replay"), ()=>{ replayKey=S.key; showReplay(S); render(); }),
+    mkBtn(t("hist.json"), ()=>exportSession(S,"json")),
+    mkBtn(t("hist.markdown"), ()=>exportSession(S,"md")),
+    mkBtn(pins.has(S.key)?t("hist.unpin"):t("hist.pin"), ()=>togglePin(S.key)),
+    mkBtn(hidden.has(S.key)?t("hist.unhide"):t("hist.hide"), ()=>toggleHidden(S.key)),
+    mkBtn(t("hist.delete"), ()=>deleteSession(S.key), "danger")
   );
   c.appendChild(acts);
   c.onclick=()=>{ replayKey=S.key; showReplay(S); render(); };
@@ -1316,23 +1532,24 @@ function toggleHidden(key){ if(hidden.has(key)){ hidden.delete(key); } else { hi
 async function reloadAll(){
   events=[]; seen=new Set(); animatedKeys.clear(); firstRender=true;
   knownSources.clear(); renderSrcChips();
-  const sel=$("session"); sel.innerHTML='<option value="">All sessions</option>'; sessionFilter="";
+  knownProjects.clear(); renderProjChips();
+  const sel=$("session"); sel.innerHTML='<option value="">'+t("session.all")+'</option>'; sessionFilter="";
   try{ const r=await fetch("/api/events"); const arr=await r.json(); arr.forEach(addEvent); }catch(e){}
   render();
 }
 async function deleteSession(key){
-  if(!confirm("Delete this session's events and archived transcript?\n\n"+key+"\n\nThis cannot be undone.")) return;
+  if(!confirm(t("confirm.deleteSession")+"\n\n"+key+"\n\n"+t("confirm.deleteSessionWarn"))) return;
   try{ const r=await fetch("/api/session/delete?key="+encodeURIComponent(key),{method:"POST"}); if(!r.ok) throw new Error(await r.text()); }
-  catch(e){ alert("Delete failed: "+e.message); return; }
+  catch(e){ alert(t("alert.deleteFailed")+e.message); return; }
   if(replayKey===key) replayKey=null;
   pins.delete(key); saveSet("am:pins",pins); hidden.delete(key); saveSet("am:hidden",hidden);
   await reloadAll();
 }
 async function clearAll(){
-  if(!confirm("Clear ALL history?\n\nThis wipes every captured event and archived transcript for ALL agents and projects. This cannot be undone.")) return;
-  if(!confirm("Final confirmation — really wipe everything?")) return;
+  if(!confirm(t("confirm.clearAll1")+"\n\n"+t("confirm.clearAll1Body"))) return;
+  if(!confirm(t("confirm.clearAll2"))) return;
   try{ const r=await fetch("/api/history/clear",{method:"POST"}); if(!r.ok) throw new Error(await r.text()); }
-  catch(e){ alert("Clear failed: "+e.message); return; }
+  catch(e){ alert(t("alert.clearFailed")+e.message); return; }
   replayKey=null; pins.clear(); hidden.clear(); saveSet("am:pins",pins); saveSet("am:hidden",hidden);
   await reloadAll();
 }
@@ -1355,18 +1572,18 @@ function renderChips(){
   }
   menu.appendChild(elp("dd-sep"));
   const acts=elp("dd-actions");
-  const bAll=document.createElement("button"); bAll.className="chip-link"; bAll.textContent="select all";
+  const bAll=document.createElement("button"); bAll.className="chip-link"; bAll.textContent=t("dd.selectAll");
   bAll.onclick=(e)=>{ e.stopPropagation(); CATS.forEach(c=>catFilter.add(c)); renderChips(); render(); };
-  const bNone=document.createElement("button"); bNone.className="chip-link"; bNone.textContent="clear";
+  const bNone=document.createElement("button"); bNone.className="chip-link"; bNone.textContent=t("dd.clear");
   bNone.onclick=(e)=>{ e.stopPropagation(); catFilter.clear(); renderChips(); render(); };
   acts.append(bAll,bNone); menu.appendChild(acts);
-  const val=$("typeVal"); if(val) val.textContent = catFilter.size>=CATS.length ? "all" : (catFilter.size+"/"+CATS.length);
+  const val=$("typeVal"); if(val) val.textContent = catFilter.size>=CATS.length ? t("dd.all") : (catFilter.size+"/"+CATS.length);
 }
 function renderSrcChips(){
   const menu=$("srcMenu"); if(!menu) return; menu.innerHTML="";
   const srcs=[...knownSources].sort();
   const val=$("srcVal");
-  if(srcs.length===0){ menu.appendChild(elp("dd-empty","waiting for events…")); if(val) val.textContent="all"; return; }
+  if(srcs.length===0){ menu.appendChild(elp("dd-empty",t("dd.waiting"))); if(val) val.textContent=t("dd.all"); return; }
   for(const s of srcs){
     const on = srcFilter.size===0 || srcFilter.has(s);
     menu.appendChild(ddItem(s, sourceColor(s), on, ()=>{
@@ -1376,7 +1593,25 @@ function renderSrcChips(){
       renderSrcChips(); render();
     }));
   }
-  if(val) val.textContent = srcFilter.size===0 ? "all" : (srcFilter.size+"/"+srcs.length);
+  if(val) val.textContent = srcFilter.size===0 ? t("dd.all") : (srcFilter.size+"/"+srcs.length);
+}
+function renderProjChips(){
+  const menu=$("projMenu"); if(!menu) return; menu.innerHTML="";
+  const projs=[...knownProjects].sort((a,b)=> projLabel(a).localeCompare(projLabel(b)));
+  const val=$("projVal");
+  if(projs.length===0){ menu.appendChild(elp("dd-empty",t("dd.waiting"))); if(val) val.textContent=t("dd.all"); return; }
+  for(const p of projs){
+    const on = projFilter.size===0 || projFilter.has(p);
+    const item = ddItem(projLabel(p), projectColor(p), on, ()=>{
+      if(projFilter.size===0){ projs.forEach(x=>projFilter.add(x)); }
+      if(projFilter.has(p)) projFilter.delete(p); else projFilter.add(p);
+      if(projFilter.size===projs.length) projFilter.clear();
+      renderProjChips(); render();
+    });
+    item.title = p || t("proj.unknown");
+    menu.appendChild(item);
+  }
+  if(val) val.textContent = projFilter.size===0 ? t("dd.all") : (projFilter.size+"/"+projs.length);
 }
 function setFollow(v){ follow=v; $("followBtn").classList.toggle("on",v); if(v){ const l=$("list"); l.scrollTop = (view==="tree") ? 0 : l.scrollHeight; } }
 function setFollowUI(v){ follow=v; $("followBtn").classList.toggle("on",v); }
@@ -1385,7 +1620,8 @@ function setConn(live){
   const dot=$("dot"), conn=$("conn");
   if(live) everLive = true;
   dot.className="dot "+(live?"on":"off");
-  conn.textContent = live ? "live" : (everLive ? "offline" : "connecting");
+  connLabelState = live ? "live" : (everLive ? "offline" : "connecting");
+  conn.textContent = t("conn."+connLabelState);
 }
 
 let raf=0;
@@ -1401,17 +1637,15 @@ function addEvent(ev){
   events.push(ev);
   const src=srcOf(ev);
   if(!knownSources.has(src)){ knownSources.add(src); renderSrcChips(); }
+  const proj=projectOf(ev);
+  if(!knownProjects.has(proj)){ knownProjects.add(proj); renderProjChips(); }
   if(ev.conversation_id || ev.session_id){ const key=sessionKeyOf(ev); const sel=$("session"); if(![...sel.options].some(o=>o.value===key)){ const o=document.createElement("option"); o.value=key; o.textContent=src+" · "+String(key).slice(0,8); sel.appendChild(o); } }
   scheduleRender();
 }
 
-const HINT_HTML = "<b>Multi-engine:</b> tag each agent's hooks with a source (cursor / claude / codex / …) and they all stream here. "+
-  "<b>Captured:</b> tool calls, shell, file read+edit, MCP, subagent, prompt, thought, response. "+
-  "<b>Not captured</b> (platform limit): the full prompt sent to the LLM, per-token reasoning. "+
-  "Token totals shown on each turn come from Cursor hook fields or Claude transcript usage rows.";
-
 async function boot(){
-  renderChips(); renderSrcChips();
+  applyStaticText();
+  renderChips(); renderSrcChips(); renderProjChips();
   try{ const r=await fetch("/api/events"); const arr=await r.json(); arr.forEach(addEvent); }catch(e){}
   render();
   const list=$("list"); list.scrollTop = (view==="tree") ? 0 : list.scrollHeight;
@@ -1432,6 +1666,8 @@ $("btnTree").onclick=()=>setView("tree");
 $("btnTl").onclick=()=>setView("timeline");
 $("btnHist").onclick=()=>setView("history");
 $("followBtn").onclick=()=> setFollow(!follow);
+$("langBtnZh").onclick=()=> setLang("zh");
+$("langBtnEn").onclick=()=> setLang("en");
 $("session").onchange=(e)=>{ sessionFilter=e.target.value; render(); };
 $("search").oninput=(e)=>{ search=e.target.value; render(); };
 function closeDropdowns(except){ document.querySelectorAll(".dropdown.open").forEach(d=>{ if(d!==except) d.classList.remove("open"); }); }
@@ -1448,7 +1684,7 @@ function wireDropdown(dropId, btnId){
     }
   };
 }
-wireDropdown("srcDrop","srcBtn"); wireDropdown("typeDrop","typeBtn");
+wireDropdown("srcDrop","srcBtn"); wireDropdown("typeDrop","typeBtn"); wireDropdown("projDrop","projBtn");
 document.addEventListener("click",(e)=>{
   if(!e.target.closest(".dropdown")) closeDropdowns();
   if(!e.target.closest(".flow-tokens")) closeAllTokenPops();

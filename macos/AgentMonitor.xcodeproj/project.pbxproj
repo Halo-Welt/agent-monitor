@@ -15,6 +15,7 @@
 		B00100000000000000000006 /* HookInstaller.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00100000000000000000006 /* HookInstaller.swift */; };
 		B00100000000000000000007 /* LaunchAtLogin.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00100000000000000000007 /* LaunchAtLogin.swift */; };
 		B00100000000000000000008 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F00100000000000000000008 /* Assets.xcassets */; };
+		B0010000000000000000000B /* L10n.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0010000000000000000000B /* L10n.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -28,6 +29,7 @@
 		F00100000000000000000008 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		F00100000000000000000009 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		F0010000000000000000000A /* Agent Monitor.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Agent Monitor.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		F0010000000000000000000B /* L10n.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = L10n.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -59,6 +61,7 @@
 				F00100000000000000000005 /* PanelWindowController.swift */,
 				F00100000000000000000006 /* HookInstaller.swift */,
 				F00100000000000000000007 /* LaunchAtLogin.swift */,
+				F0010000000000000000000B /* L10n.swift */,
 				G00100000000000000000004 /* Resources */,
 				F00100000000000000000009 /* Info.plist */,
 			);
@@ -176,6 +179,7 @@
 				B00100000000000000000005 /* PanelWindowController.swift in Sources */,
 				B00100000000000000000006 /* HookInstaller.swift in Sources */,
 				B00100000000000000000007 /* LaunchAtLogin.swift in Sources */,
+				B0010000000000000000000B /* L10n.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

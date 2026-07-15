@@ -53,11 +53,12 @@ enum HookInstaller {
     }
 
     static func showResultAlert(success: Bool, message: String) {
+        let l10n = L10n.shared
         let alert = NSAlert()
-        alert.messageText = success ? "Hooks Installed" : "Install Failed"
+        alert.messageText = success ? l10n.t("alert.hooksInstalled") : l10n.t("alert.installFailed")
         alert.informativeText = message
         alert.alertStyle = success ? .informational : .warning
-        alert.addButton(withTitle: "OK")
+        alert.addButton(withTitle: l10n.t("alert.ok"))
         alert.runModal()
     }
 }

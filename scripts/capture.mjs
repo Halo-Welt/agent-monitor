@@ -18,6 +18,51 @@ const TX_DIR = path.join(OBS_DIR, "transcripts");
 // stay useful in the UI — and roll the log past 128 MB so disk stays bounded.
 const MAX_STR = 20 * 1024;
 const MAX_LOG = 128 * 1024 * 1024;
+// Per-string truncation above doesn't bound the TOTAL size of an event (e.g. an
+// array of many short strings each under MAX_STR can still add up to hundreds of
+// MB), which let single writes blow past MAX_LOG before rotation ever triggered.
+// Hard-cap the fully serialized line so rotation stays reliable.
+const MAX_LINE = 2 * 1024 * 1024;
+// Some hosts fire the same hook twice for one logical event (observed: Cursor's
+// afterAgentThought emits the identical thought text under two different
+// generation_id formats within the same millisecond). Collapse those before
+// they double every downstream count.
+const DEDUP_WINDOW_MS = 5000;
+const DEDUP_TAIL_BYTES = 16 * 1024;
+const LOCK_FILE = EVENTS_FILE + ".lock";
+const LOCK_MAX_WAIT_MS = 200;
+const LOCK_STALE_MS = 2000;
+
+// The two double-fired hooks land within the SAME millisecond, as two
+// separate OS processes — without serializing them, both can read the file
+// tail before either has appended, and the dedup check above sees nothing to
+// match against. Take a tiny exclusive-create lock around check+write so
+// only one of them runs that section at a time. Bounded wait + self-healing
+// on a stale lock (crashed holder) so this can never hang the agent.
+function withLock(fn) {
+  const deadline = Date.now() + LOCK_MAX_WAIT_MS;
+  const clock = new Int32Array(new SharedArrayBuffer(4));
+  let fd = null;
+  while (fd == null) {
+    try {
+      fd = fs.openSync(LOCK_FILE, "wx");
+    } catch {
+      try {
+        if (Date.now() - fs.statSync(LOCK_FILE).mtimeMs > LOCK_STALE_MS) fs.unlinkSync(LOCK_FILE);
+      } catch {}
+      if (Date.now() >= deadline) break; // fail-open: proceed unlocked rather than block the agent
+      try { Atomics.wait(clock, 0, 0, 5); } catch {}
+    }
+  }
+  try {
+    return fn();
+  } finally {
+    if (fd != null) {
+      try { fs.closeSync(fd); } catch {}
+      try { fs.unlinkSync(LOCK_FILE); } catch {}
+    }
+  }
+}
 
 function truncateStrings(value, depth) {
   if (depth > 12) return value;
@@ -32,6 +77,59 @@ function truncateStrings(value, depth) {
     for (const k of Object.keys(value)) value[k] = truncateStrings(value[k], depth + 1);
   }
   return value;
+}
+
+function coreContent(ev) {
+  return ev.text ?? ev.thinking ?? ev.prompt ?? ev.message ?? ev.last_assistant_message ??
+    ev.command ?? ev.file_path ?? ev.path ?? "";
+}
+
+// Cursor tags every event in a turn with a generation_id, but afterAgentThought
+// suffixes it per-chunk ("<base>-<index>-<rand>"). The observed double-fire
+// emits the SAME thought under both the suffixed id and the bare base id, so
+// strip the suffix before comparing — see turnGenId() in assets/index.html for
+// the matching client-side logic.
+function baseGenerationId(ev) {
+  const raw = ev.generation_id || ev.prompt_id || "";
+  const m = /^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})-\d+-[0-9a-z]+$/i.exec(raw);
+  return m ? m[1] : raw;
+}
+
+// Reads only the tail of the log (events append fast, so a true duplicate is
+// always within the last few lines) and checks whether the current event
+// already appears there — same hook, same session, same core content (and
+// same turn, when a generation/prompt id is available), within
+// DEDUP_WINDOW_MS. Fail-open: any read/parse error just means "not a duplicate".
+function isDuplicateOfRecent(ev) {
+  let fd;
+  try {
+    fd = fs.openSync(EVENTS_FILE, "r");
+    const size = fs.fstatSync(fd).size;
+    const start = Math.max(0, size - DEDUP_TAIL_BYTES);
+    const buf = Buffer.alloc(size - start);
+    fs.readSync(fd, buf, 0, buf.length, start);
+    const evTs = new Date(ev._ts).getTime();
+    const evCore = String(coreContent(ev)).slice(0, 500);
+    const evSession = ev.session_id || ev.conversation_id;
+    const evGen = baseGenerationId(ev);
+    if (!evCore) return false;
+    const lines = buf.toString("utf8").split("\n");
+    for (let i = lines.length - 1; i >= 0; i--) {
+      const line = lines[i].trim();
+      if (!line) continue;
+      let prev;
+      try { prev = JSON.parse(line); } catch { continue; }
+      if (prev._event !== ev._event) continue;
+      const prevSession = prev.session_id || prev.conversation_id;
+      if (evSession && prevSession && evSession !== prevSession) continue;
+      if (evGen && baseGenerationId(prev) && baseGenerationId(prev) !== evGen) continue;
+      const prevTs = new Date(prev._ts).getTime();
+      if (!Number.isFinite(prevTs) || !Number.isFinite(evTs) || Math.abs(evTs - prevTs) > DEDUP_WINDOW_MS) continue;
+      if (String(coreContent(prev)).slice(0, 500) === evCore) return true;
+    }
+  } catch { /* no file yet, or read failed — treat as not a duplicate */ }
+  finally { if (fd != null) try { fs.closeSync(fd); } catch {} }
+  return false;
 }
 
 function rotateIfLarge() {
@@ -182,10 +280,24 @@ async function main() {
   if (ev.cursor_version && argSource && argSource !== "cursor") { allow(); process.exit(0); }
 
   try {
-    attachUsageFromTranscript(ev);
     fs.mkdirSync(OBS_DIR, { recursive: true });
-    rotateIfLarge();
-    fs.appendFileSync(EVENTS_FILE, JSON.stringify(truncateStrings(ev, 0)) + "\n");
+    withLock(() => {
+      if (isDuplicateOfRecent(ev)) return;
+      attachUsageFromTranscript(ev);
+      rotateIfLarge();
+      let line = JSON.stringify(truncateStrings(ev, 0));
+      if (Buffer.byteLength(line, "utf8") > MAX_LINE) {
+        // Extremely rare: even after per-string truncation, the event is still
+        // huge (many fields adding up). Fall back to a minimal marker record
+        // instead of writing a multi-MB line that defeats log rotation.
+        line = JSON.stringify({
+          _event: ev._event, _source: ev._source, _ts: ev._ts,
+          session_id: ev.session_id, conversation_id: ev.conversation_id,
+          _oversized: true, _originalBytes: Buffer.byteLength(line, "utf8"),
+        });
+      }
+      fs.appendFileSync(EVENTS_FILE, line + "\n");
+    });
   } catch { /* logging is best-effort */ }
 
   archiveTranscript(ev);

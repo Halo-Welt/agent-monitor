@@ -38,7 +38,7 @@ final class AppState: ObservableObject {
         HookInstaller.install { result in
             switch result {
             case .success(let output):
-                let msg = output.isEmpty ? "Cursor and Claude Code hooks registered. Reload Cursor to activate." : output
+                let msg = output.isEmpty ? L10n.shared.t("alert.hooksInstalledDefaultMsg") : output
                 HookInstaller.showResultAlert(success: true, message: String(msg.suffix(800)))
             case .failure(let error):
                 HookInstaller.showResultAlert(success: false, message: error.localizedDescription)
@@ -79,6 +79,7 @@ struct StatusDot: View {
 
 struct AgentMonitorMenuContent: View {
     @ObservedObject var state: AppState
+    @ObservedObject var l10n = L10n.shared
 
     var body: some View {
         let snap = state.monitor.snapshot
@@ -106,23 +107,28 @@ struct AgentMonitorMenuContent: View {
 
         Divider()
 
-        Button("Open Panel") {
+        Button(l10n.t("menu.openPanel")) {
             state.openPanel()
         }
         .keyboardShortcut("o", modifiers: .command)
 
-        Button("Install Hooks…") {
+        Button(l10n.t("menu.installHooks")) {
             state.installHooks()
         }
 
-        Toggle("Launch at Login", isOn: Binding(
+        Toggle(l10n.t("menu.launchAtLogin"), isOn: Binding(
             get: { state.launchAtLogin },
             set: { state.setLaunchAtLogin($0) }
         ))
 
+        Toggle(l10n.t("menu.language"), isOn: Binding(
+            get: { l10n.lang == .zh },
+            set: { _ in l10n.toggle() }
+        ))
+
         Divider()
 
-        Button("Quit") {
+        Button(l10n.t("menu.quit")) {
             state.quit()
         }
         .keyboardShortcut("q", modifiers: .command)

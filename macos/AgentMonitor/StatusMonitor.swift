@@ -19,6 +19,11 @@ final class StatusMonitor: ObservableObject {
 
     private var watchId: UUID?
     private var events: [[String: Any]] = []
+    // The app tails the log for as long as it runs (often days), and this array
+    // only ever grew — cap it to a rolling window so memory stays flat instead
+    // of climbing for the life of the process. Only the snapshot (last event,
+    // active sessions/sources) is derived from it, so trimming old entries is safe.
+    private let maxTrackedEvents = 5000
     private let inFlightEvents: Set<String> = [
         "pretooluse", "beforeshellexecution", "beforemcpexecution",
         "beforereadfile", "subagentstart", "beforetabfileread"
@@ -65,6 +70,9 @@ final class StatusMonitor: ObservableObject {
             if (obj["_event"] as? String) == "_ping" { continue }
             events.append(obj)
         }
+        if events.count > maxTrackedEvents {
+            events.removeFirst(events.count - maxTrackedEvents)
+        }
         updateSnapshot()
     }
 
@@ -72,11 +80,12 @@ final class StatusMonitor: ObservableObject {
         var snap = snapshot
         snap.serverReady = snapshot.serverReady
 
+        let l10n = L10n.shared
         guard snap.serverReady else {
             snap.iconState = .offline
-            snap.statusLine = "offline · server not ready"
-            snap.lastEventLine = "Restart the app to start the panel server"
-            snap.countsLine = "\(events.count) events"
+            snap.statusLine = l10n.t("status.offlineReady")
+            snap.lastEventLine = l10n.t("status.restartApp")
+            snap.countsLine = String(format: l10n.t("count.events"), events.count)
             snapshot = snap
             return
         }
@@ -85,12 +94,12 @@ final class StatusMonitor: ObservableObject {
         let sessions = Set(realEvents.map { EventLogReader.sessionKey(of: $0) })
         let sources = Set(realEvents.map { EventLogReader.sourceOf($0) }).sorted()
 
-        snap.countsLine = "\(realEvents.count) events · \(sessions.count) sessions"
+        snap.countsLine = String(format: l10n.t("count.eventsAndSessions"), realEvents.count, sessions.count)
 
         guard let last = realEvents.last else {
             snap.iconState = .idle
-            snap.statusLine = "idle · waiting"
-            snap.lastEventLine = "No events yet — run install hooks, then use an agent"
+            snap.statusLine = l10n.t("status.idleWaiting")
+            snap.lastEventLine = l10n.t("status.noEventsYet")
             snapshot = snap
             return
         }
@@ -100,8 +109,8 @@ final class StatusMonitor: ObservableObject {
         let ts = parseTimestamp(last["_ts"])
         let ago = relativeTime(since: ts)
 
-        snap.lastEventLine = "Last: \(summarize(last)) (\(ago))"
-        snap.statusLine = sources.isEmpty ? "live · \(src)" : "live · \(sources.joined(separator: ", "))"
+        snap.lastEventLine = String(format: l10n.t("status.lastFormat"), summarize(last), ago)
+        snap.statusLine = String(format: l10n.t("status.liveFormat"), sources.isEmpty ? src : sources.joined(separator: ", "))
 
         if inFlightEvents.contains(rawEvent) {
             snap.iconState = .active
@@ -126,10 +135,11 @@ final class StatusMonitor: ObservableObject {
     private func relativeTime(since date: Date?) -> String {
         guard let date else { return "?" }
         let sec = Int(Date().timeIntervalSince(date))
-        if sec < 5 { return "just now" }
-        if sec < 60 { return "\(sec)s ago" }
-        if sec < 3600 { return "\(sec / 60)m ago" }
-        return "\(sec / 3600)h ago"
+        let l10n = L10n.shared
+        if sec < 5 { return l10n.t("time.justNow") }
+        if sec < 60 { return String(format: l10n.t("time.secAgo"), sec) }
+        if sec < 3600 { return String(format: l10n.t("time.minAgo"), sec / 60) }
+        return String(format: l10n.t("time.hourAgo"), sec / 3600)
     }
 
     private func summarize(_ ev: [String: Any]) -> String {
