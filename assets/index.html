@@ -46,17 +46,10 @@
   /* ---------------- masthead ---------------- */
   header { position:sticky; top:0; z-index:20; background:var(--panel); border-bottom:1px solid var(--border); }
   .topbar { display:flex; align-items:center; gap:10px; padding:10px 16px; flex-wrap:wrap; }
-  .brand { display:flex; align-items:baseline; gap:8px; }
-  .brand h1 { font-size:var(--fs-lg); margin:0; font-weight:650; display:inline-flex; align-items:center; gap:8px; color:var(--fg); }
-  .brand h1::before { content:""; width:7px; height:7px; border-radius:1.5px; background:var(--accent); }
-  .brand .sub { color:var(--faint); font-size:var(--fs-xs); font-weight:450; }
+  .brand { display:flex; align-items:center; gap:8px; }
+  .brand-mark { width:20px; height:20px; color:var(--accent); flex-shrink:0; }
+  .brand h1 { font-size:var(--fs-lg); margin:0; font-weight:650; color:var(--fg); }
   .spacer { flex:1; }
-  .pill { display:inline-flex; align-items:center; gap:6px; background:var(--panel-3); border:1px solid var(--border);
-          border-radius:var(--radius-sm); padding:3px 9px; color:var(--muted); font-size:var(--fs-xs); font-variant-numeric:tabular-nums;
-          font-family:var(--sans); font-weight:500; }
-  .dot { width:6px; height:6px; border-radius:50%; display:inline-block; }
-  .dot.on { background:var(--ok); }
-  .dot.off { background:var(--faint); }
   .seg { display:inline-flex; border:1px solid var(--border); border-radius:var(--radius-sm); overflow:hidden; background:var(--panel); }
   .seg button { background:transparent; color:var(--muted); border:0; padding:5px 11px; cursor:pointer; font-size:var(--fs-sm); font-weight:550;
     transition:color .12s, background .12s; }
@@ -80,7 +73,7 @@
   .flabel { color:var(--faint); font-size:var(--fs-label); text-transform:capitalize; margin-right:2px; font-weight:600; }
   input[type=text], select {
     background:var(--panel); color:var(--fg); border:1px solid var(--border); border-radius:var(--radius-sm);
-    padding:5px 9px; font-size:var(--fs-sm); outline:none; transition:border-color .12s, box-shadow .12s;
+    padding:5px 9px; font-size:11px; outline:none; transition:border-color .12s, box-shadow .12s;
   }
   select { color:var(--muted); }
   input[type=text] { width:200px; }
@@ -95,7 +88,7 @@
     padding:5px 9px; font-size:var(--fs-sm); color:var(--fg); cursor:pointer; transition:border-color .12s, box-shadow .12s; }
   .dd-btn:hover { border-color:#d0d5dc; }
   .dd-btn .flabel { margin:0; }
-  .dd-val { color:var(--muted); font-variant-numeric:tabular-nums; font-family:var(--sans); font-size:var(--fs-xs); }
+  .dd-val { color:var(--muted); font-variant-numeric:tabular-nums; font-family:var(--sans); font-size:11px; }
   .dd-caret { color:var(--faint); font-size:9px; transition:transform .15s; }
   .dropdown.open .dd-btn { border-color:var(--accent); box-shadow:var(--ring); }
   .dropdown.open .dd-caret { transform:rotate(180deg); }
@@ -140,6 +133,7 @@
 
   details.session { border:1px solid var(--border); border-radius:var(--radius); margin-bottom:10px;
     background:var(--panel); overflow:hidden; transition:border-color .12s ease; box-shadow:var(--shadow); }
+  details.session.token-open { overflow:visible; }
   details.session:hover { border-color:#d0d5dc; }
   details.session > summary { padding:10px 12px; cursor:pointer; list-style:none; display:flex; align-items:center; gap:9px; font-weight:600; }
   details.session > summary::-webkit-details-marker { display:none; }
@@ -163,6 +157,7 @@
 
   /* ---------------- per-turn flow diagram (opt-in, collapsed) ---------------- */
   .flow { margin:3px 4px; border:1px solid var(--border); border-radius:var(--radius-sm); background:var(--panel); overflow:hidden; }
+  .flow.token-open { overflow:visible; position:relative; z-index:5; }
   .flow > summary { padding:6px 9px 6px 26px; cursor:pointer; list-style:none; display:flex; align-items:center; gap:8px; position:relative; }
   .flow > summary::-webkit-details-marker { display:none; }
   .flow > summary::before { content:"▸"; position:absolute; left:11px; color:var(--faint); font-size:9px; }
@@ -170,18 +165,19 @@
   .flow > summary:hover { background:var(--panel-2); }
   .flow-title { font-size:var(--fs-sm); font-weight:600; color:var(--fg); }
   .flow-sub { font-size:var(--fs-xs); color:var(--faint); flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .flow-tokens { margin-left:auto; position:relative; flex-shrink:0; max-width:55%; }
+  .flow-tokens { margin-left:auto; position:relative; flex-shrink:0; max-width:55%; z-index:2; }
   .flow-tokens.pending .flow-tok-total { color:var(--faint); font-weight:500; }
   .flow-tok-chip {
     display:flex; align-items:center; gap:7px; padding:2px 6px; margin:-2px -4px;
     border-radius:5px; cursor:pointer; font-variant-numeric:tabular-nums;
-    border:1px solid transparent;
+    border:1px solid transparent; user-select:none;
   }
   .flow-tok-chip:hover { background:var(--panel-2); border-color:var(--border); }
   .flow-tokens.open .flow-tok-chip { background:var(--accent-soft); border-color:color-mix(in srgb, var(--accent) 28%, white); }
   .flow-tok-minibar { width:40px; height:6px; border-radius:3px; display:flex; overflow:hidden; background:var(--panel-2); flex-shrink:0; }
   .flow-tok-minibar span { display:block; height:100%; min-width:0; }
   .flow-tok-total { font-size:var(--fs-sm); font-weight:650; color:var(--fg); white-space:nowrap; }
+  .flow-tok-label { font-size:var(--fs-label); color:var(--muted); white-space:nowrap; }
   .tok-pop {
     display:none; position:absolute; right:0; top:calc(100% + 6px); z-index:40;
     width:272px; padding:12px 12px 10px; background:var(--panel);
@@ -193,8 +189,14 @@
   .tok-pop-close { border:0; background:transparent; color:var(--faint); cursor:pointer; font-size:14px; line-height:1; padding:2px 4px; border-radius:4px; }
   .tok-pop-close:hover { background:var(--panel-2); color:var(--fg); }
   .tok-pop-sum { display:flex; align-items:baseline; justify-content:space-between; gap:8px; margin-bottom:8px; font-variant-numeric:tabular-nums; }
-  .tok-pop-pct { font-size:var(--fs-sm); font-weight:600; color:var(--fg); }
   .tok-pop-total { font-size:var(--fs-xs); color:var(--faint); }
+  .tok-pop-stats {
+    display:flex; gap:4px; margin-bottom:10px; padding:8px 0;
+    border-top:1px solid var(--border); border-bottom:1px solid var(--border);
+  }
+  .tok-pop-stat { flex:1; min-width:0; text-align:center; display:flex; flex-direction:column; gap:2px; }
+  .tok-pop-stat-val { font-size:var(--fs-md); font-weight:650; color:var(--fg); font-variant-numeric:tabular-nums; }
+  .tok-pop-stat-label { font-size:var(--fs-label); color:var(--faint); }
   .tok-pop-bar { display:flex; height:8px; border-radius:4px; overflow:hidden; background:var(--panel-2); margin-bottom:10px; }
   .tok-pop-bar span { display:block; height:100%; min-width:0; }
   .tok-pop-list { display:flex; flex-direction:column; gap:6px; }
@@ -307,7 +309,6 @@
 
   @media (max-width: 720px) {
     .topbar { gap:8px; padding:10px 13px; }
-    .brand .sub { display:none; }
     .filterbar { padding:9px 13px; }
     input[type=text] { width:100%; flex:1 1 140px; }
     main { flex-direction:column; }
@@ -322,10 +323,16 @@
 <body>
 <header>
   <div class="topbar">
-    <div class="brand"><h1>Agent Monitor</h1><span class="sub" id="brandSub">live</span></div>
+    <div class="brand">
+      <svg class="brand-mark" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <path d="M5 7.5h5.5l3 9H19" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+        <circle cx="5" cy="7.5" r="2.25" fill="currentColor"/>
+        <circle cx="19" cy="16.5" r="2.25" fill="currentColor"/>
+        <circle cx="12" cy="12" r="1.75" fill="white" stroke="currentColor" stroke-width="1.5"/>
+      </svg>
+      <h1>Agent Monitor</h1>
+    </div>
     <div class="spacer"></div>
-    <span class="pill"><span id="dot" class="dot off"></span><span id="conn">connecting</span></span>
-    <span class="pill" id="count">0 events</span>
     <div class="seg">
       <button id="btnTree" class="active">Tree</button>
       <button id="btnTl">Timeline</button>
@@ -406,7 +413,6 @@ function projectColor(p){
 const LANG_KEY = "am:lang";
 const I18N = {
   en: {
-    "topbar.sub":"live", "conn.connecting":"connecting", "conn.live":"live", "conn.offline":"offline",
     "seg.tree":"Tree", "seg.timeline":"Timeline", "seg.history":"History",
     "follow.label":"Follow", "follow.title":"Auto-scroll to newest events", "lang.title":"Switch UI language",
     "search.placeholder":"filter by text…", "session.all":"All sessions",
@@ -431,20 +437,19 @@ const I18N = {
     "hint.summary":"Capture notes",
     "hint.body":"<b>Multi-engine:</b> tag each agent's hooks with a source (cursor / claude / codex / …) and they all stream here. "+
       "<b>Captured:</b> tool calls, shell, file read+edit, MCP, subagent, prompt, thought, response. "+
-      "<b>Not captured</b> (platform limit): the full prompt sent to the LLM, per-token reasoning. "+
-      "Token totals shown on each turn come from Cursor hook fields or Claude transcript usage rows.",
+      "<b>Not captured</b> (platform limit): the full prompt sent to the LLM, per-token reasoning, or Cursor's System/Rules/Skills context splits. "+
+      "Tokens This Turn is the sum across every model call (incl. sub-calls) made during the turn — a different metric than Cursor's single-call context window snapshot.",
     "lane.user":"User", "lane.agent":"Agent", "lane.tool":"Tool", "lane.shell":"Shell", "lane.file":"File",
     "lane.mcp":"MCP", "lane.subagent":"Subagent",
     "flow.title":"Sequence Diagram",
     "flow.legend":"solid = call / send · dashed = return / result · click for details",
     "flow.note":"Model-internal, token-by-token steps aren't observable — this diagram is reconstructed only from captured hook events.",
     "flow.fail":"failed", "flow.result":"result",
-    "token.title":"Token Usage", "token.chipTooltip":"Click to see this turn's token breakdown",
-    "token.close":"Close", "token.consumed":"this turn",
+    "token.title":"API Usage", "token.apiTotal":"API total", "token.chipTooltip":"Click to see this turn's API usage",
+    "token.close":"Close", "token.contextTotal":"Context total", "token.calls":"LLM calls",
     "usage.input":"Input", "usage.cacheWrite":"Cache Write", "usage.cacheRead":"Cache Read", "usage.output":"Output",
   },
   zh: {
-    "topbar.sub":"实时", "conn.connecting":"连接中", "conn.live":"实时", "conn.offline":"离线",
     "seg.tree":"树状图", "seg.timeline":"时间线", "seg.history":"历史",
     "follow.label":"跟随", "follow.title":"自动滚动到最新事件", "lang.title":"切换界面语言",
     "search.placeholder":"按文本筛选…", "session.all":"全部会话",
@@ -469,16 +474,16 @@ const I18N = {
     "hint.summary":"采集说明",
     "hint.body":"<b>多引擎：</b>给每个 agent 的 hook 打上来源标记（cursor / claude / codex / …），它们都会汇入这里。"+
       "<b>已捕获：</b>工具调用、shell、文件读写、MCP、子 agent、prompt、思考、回复。"+
-      "<b>无法捕获</b>（平台限制）：发送给 LLM 的完整 prompt、逐 token 的推理过程。"+
-      "每轮显示的 token 总量来自 Cursor hook 字段或 Claude transcript 的用量记录。",
+      "<b>无法捕获</b>（平台限制）：发送给 LLM 的完整 prompt、逐 token 的推理过程、Cursor Context Usage 里的 System/Rules/Skills 细分。"+
+      "本轮 Token 用量展示的是这一轮内所有模型调用（含子调用）的合计，不等于 Cursor 界面里单次调用的上下文窗口快照，两者口径不同。",
     "lane.user":"用户", "lane.agent":"Agent", "lane.tool":"工具", "lane.shell":"Shell", "lane.file":"文件",
     "lane.mcp":"MCP", "lane.subagent":"子Agent",
     "flow.title":"时序图",
     "flow.legend":"实线=调用 / 发送 · 虚线=返回 / 结果 · 点击查看详情",
     "flow.note":"模型内部逐 token 步骤不可观测，此图仅基于已捕获的对话事件重建。",
     "flow.fail":"失败", "flow.result":"结果",
-    "token.title":"Token 用量", "token.chipTooltip":"点击查看本轮 token 分类",
-    "token.close":"关闭", "token.consumed":"本轮消耗",
+    "token.title":"API 用量", "token.apiTotal":"API 总量", "token.chipTooltip":"点击查看本轮 API 用量",
+    "token.close":"关闭", "token.contextTotal":"上下文总量", "token.calls":"调用次数",
     "usage.input":"输入", "usage.cacheWrite":"Cache 写入", "usage.cacheRead":"Cache 读取", "usage.output":"输出",
   },
 };
@@ -488,7 +493,6 @@ function detectLang(){
 }
 let LANG = detectLang();
 function t(key){ const d=I18N[LANG]||I18N.en; return (key in d) ? d[key] : (I18N.en[key] ?? key); }
-function fmtEventCount(n){ return LANG==="zh" ? n+" 个事件" : n+" events"; }
 function fmtSessionCount(total, hiddenN){
   return LANG==="zh" ? total+" 个会话"+(hiddenN?(" · 已隐藏 "+hiddenN):"") : total+" sessions"+(hiddenN?(" · "+hiddenN+" hidden"):"");
 }
@@ -501,8 +505,6 @@ function fmtStepCount(n){ return LANG==="zh" ? n+" 步" : n+(n===1?" step":" ste
 function applyStaticText(){
   document.documentElement.lang = LANG==="zh" ? "zh-CN" : "en";
   const set=(id,txt)=>{ const el=$(id); if(el) el.textContent=txt; };
-  set("brandSub", t("topbar.sub"));
-  set("conn", t("conn."+connLabelState));
   set("btnTree", t("seg.tree")); set("btnTl", t("seg.timeline")); set("btnHist", t("seg.history"));
   set("followLabel", t("follow.label"));
   const followBtn=$("followBtn"); if(followBtn) followBtn.title=t("follow.title");
@@ -536,7 +538,6 @@ const srcFilter = new Set();      // empty = all sources
 const projFilter = new Set();     // empty = all projects
 const knownSources = new Set();
 const knownProjects = new Set();
-let connLabelState = "connecting"; // "connecting" | "live" | "offline"
 
 // ---- History view state (pins/hidden persisted locally) ----
 function loadSet(k){ try{ return new Set(JSON.parse(localStorage.getItem(k)||"[]")); }catch{ return new Set(); } }
@@ -550,6 +551,7 @@ const stepsOpen = new Set();
 // The per-turn sequence diagram is expanded by default; remember which turns the
 // user manually collapsed so a re-render never silently re-expands them.
 const flowOpen = new Set(); // details opened by the user; flow diagrams start collapsed
+let openTokenFkey = null; // which turn's token popup is open; re-applied after every re-render
 
 // ---- GSAP-powered entrance/transition animations (graceful fallback) ----
 // GSAP is vendored locally at /gsap.min.js. If it fails to load or the user
@@ -727,7 +729,6 @@ function tag(cat, text){
 function srcBadge(src){ const b=document.createElement("span"); b.className="src-badge"; b.textContent=src; b.style.background=sourceColor(src); return b; }
 
 function render(){
-  $("count").textContent = fmtEventCount(events.filter(e=>e._event!=="_ping").length);
   const list = $("list");
   const atBottom = follow;
   const prevTop = list.scrollTop;
@@ -948,8 +949,16 @@ function flowBlock(nodes, key){
   const fl=document.createElement("details"); fl.className="flow"; fl.open=flowOpen.has(fkey);
   const sm=document.createElement("summary");
   sm.append(elp("flow-title",t("flow.title")), elp("flow-sub",t("flow.legend")));
-  const tok=flowTokensEl(nodes); if(tok) sm.appendChild(tok);
-  fl.appendChild(sm);
+  const tok=flowTokensEl(nodes, fkey);
+  if(tok){
+    sm.appendChild(tok);
+    fl.appendChild(sm);
+    // Chip may have been restored as open before it was attached; apply overflow
+    // chrome now that the <details> ancestors exist.
+    if(tok.classList.contains("open")) setTokenOpenChrome(tok, true);
+  } else {
+    fl.appendChild(sm);
+  }
   const wrap=elp("flow-wrap"); fl.appendChild(wrap);
   const build=()=>{ if(wrap.dataset.built) return; wrap.dataset.built="1";
     wrap.appendChild(flowSvg(model));
@@ -959,11 +968,17 @@ function flowBlock(nodes, key){
   return fl;
 }
 
-/* ---------------- per-turn token usage ----------------
-   Cursor exposes input/output/cache_* on afterAgentResponse/stop.
-   Claude Code does not — usage lives on assistant rows in transcript_path.
-   UI mirrors Cursor's Context Usage card: total + segmented bar + category list.
-   Categories are API usage slices (hooks don't expose System/Rules/Skills splits). */
+/* ---------------- per-turn token / context usage ----------------
+   Two different metrics — do not conflate them:
+
+   • API total  = tokens processed across every model call in the turn
+     (Cursor hooks already sum this; Claude transcripts need an explicit sum).
+   • Context    = one context-window snapshot (what Cursor's Context Usage
+     card shows). Prefer an explicit context_tokens field; otherwise recover
+     ~billedInput/calls from Cursor's multi-call sum.
+
+   Cursor's input_tokens is inclusive of cache_read+cache_write — never add
+   cache on top of it again. */
 const txCache = new Map(); // path -> {text, promise}
 const USAGE_CATS = [
   { key:"input", color:"#8b939e" },
@@ -978,8 +993,14 @@ function fmtTok(n){
   if(n>=1000) return (n/1000).toFixed(n>=10000?0:1).replace(/\.0$/,"")+"k";
   return String(Math.round(n));
 }
-function emptyUsage(){ return { input:0, output:0, cacheRead:0, cacheWrite:0 }; }
-function usageTotal(u){ return u.input+u.output+u.cacheRead+u.cacheWrite; }
+function emptyUsage(){ return { input:0, output:0, cacheRead:0, cacheWrite:0, billedInput:0, inclusive:false }; }
+// Billed total = all input (incl. cache when inclusive) + output. Never add
+// cache on top of an inclusive input_tokens — that was the 17M bug.
+function usageTotal(u){
+  const out=Number(u.output)||0;
+  if(u.billedInput!=null) return Number(u.billedInput)+out;
+  return (Number(u.input)||0)+out+(Number(u.cacheRead)||0)+(Number(u.cacheWrite)||0);
+}
 function usageParts(u){
   return USAGE_CATS.map(c=>({ ...c, label:usageLabel(c.key), value:Number(u[c.key])||0 })).filter(p=>p.value>0);
 }
@@ -995,6 +1016,20 @@ function usageBar(parts, total, cls){
   });
   return bar;
 }
+// Cursor: input_tokens already includes cache_read + cache_write.
+// Anthropic/Claude transcript rows: input_tokens is the non-cached portion.
+function normalizeUsage(rawInput, rawOutput, rawCacheRead, rawCacheWrite, preferInclusive){
+  const input=Number(rawInput)||0;
+  const output=Number(rawOutput)||0;
+  const cacheRead=Number(rawCacheRead)||0;
+  const cacheWrite=Number(rawCacheWrite)||0;
+  const inclusive = preferInclusive!=null
+    ? !!preferInclusive
+    : (cacheRead+cacheWrite>0 && input+1 >= cacheRead+cacheWrite);
+  const fresh = inclusive ? Math.max(0, input-cacheRead-cacheWrite) : input;
+  const billedInput = inclusive ? input : (input+cacheRead+cacheWrite);
+  return { input:fresh, output, cacheRead, cacheWrite, billedInput, inclusive };
+}
 function usageFromEvs(evs){
   let best=null, bestScore=-1;
   for(const ev of evs){
@@ -1002,12 +1037,15 @@ function usageFromEvs(evs){
       ev.cache_read_tokens!=null || ev.cache_write_tokens!=null ||
       ev.cache_read_input_tokens!=null || ev.cache_creation_input_tokens!=null;
     if(!has) continue;
-    const u={
-      input:Number(ev.input_tokens)||0,
-      output:Number(ev.output_tokens)||0,
-      cacheRead:Number(ev.cache_read_tokens??ev.cache_read_input_tokens)||0,
-      cacheWrite:Number(ev.cache_write_tokens??ev.cache_creation_input_tokens)||0,
-    };
+    // Cursor events carry cursor_version; treat their input_tokens as inclusive.
+    const preferInclusive = ev.cursor_version!=null || srcOf(ev)==="cursor";
+    const u=normalizeUsage(
+      ev.input_tokens,
+      ev.output_tokens,
+      ev.cache_read_tokens??ev.cache_read_input_tokens,
+      ev.cache_write_tokens??ev.cache_creation_input_tokens,
+      preferInclusive
+    );
     const score=usageTotal(u);
     if(score>bestScore){ best=u; bestScore=score; }
   }
@@ -1052,14 +1090,33 @@ function usageFromTranscriptText(text, fromTs, toTs, promptId){
   }
   const src=promptId ? (matched||lastTurn) : ((fromTs||toTs) ? byId : lastTurn);
   if(!src||!src.size) return null;
-  const u=emptyUsage();
-  for(const usage of src.values()){
-    u.input+=Number(usage.input_tokens)||0;
-    u.output+=Number(usage.output_tokens)||0;
-    u.cacheRead+=Number(usage.cache_read_input_tokens||usage.cache_read_tokens)||0;
-    u.cacheWrite+=Number(usage.cache_creation_input_tokens||usage.cache_write_tokens)||0;
+  // Claude/Anthropic: each assistant row is one API call. Sum every call for
+  // API total; keep the last call's input+cache as the context snapshot.
+  const entries=[...src.values()];
+  const last=entries[entries.length-1];
+  let input=0, output=0, cacheRead=0, cacheWrite=0;
+  for(const usage of entries){
+    const u=normalizeUsage(
+      usage.input_tokens, usage.output_tokens,
+      usage.cache_read_input_tokens||usage.cache_read_tokens,
+      usage.cache_creation_input_tokens||usage.cache_write_tokens,
+      false
+    );
+    input+=u.input; output+=u.output; cacheRead+=u.cacheRead; cacheWrite+=u.cacheWrite;
   }
-  return usageTotal(u)>0 ? u : null;
+  const lastSnap=normalizeUsage(
+    last.input_tokens, 0,
+    last.cache_read_input_tokens||last.cache_read_tokens,
+    last.cache_creation_input_tokens||last.cache_write_tokens,
+    false
+  );
+  return {
+    input, output, cacheRead, cacheWrite,
+    billedInput: input+cacheRead+cacheWrite,
+    inclusive:false,
+    contextTokens: lastSnap.billedInput,
+    calls: entries.length,
+  };
 }
 function turnPromptId(nodes){
   for(const n of nodes) for(const ev of n.evs){ if(ev.prompt_id) return ev.prompt_id; }
@@ -1081,66 +1138,153 @@ function turnTranscriptPath(nodes){
   }
   return "";
 }
+// One afterAgentThought (unique text) ≈ one model call in thinking mode; fall
+// back to unique tool_use_id count when thoughts aren't present.
+function turnApiCallCount(nodes){
+  const evs=nodes.flatMap(n=>n.evs);
+  const seen=new Set();
+  let thoughts=0;
+  for(const e of evs){
+    if(!/^afteragentthought$/i.test(String(e._event||""))) continue;
+    const k=String(e.text||e.thinking||"").slice(0,120);
+    if(!k||seen.has(k)) continue;
+    seen.add(k); thoughts++;
+  }
+  if(thoughts>0) return thoughts;
+  const tools=new Set();
+  for(const e of evs){ if(e.tool_use_id) tools.add(e.tool_use_id); }
+  return Math.max(1, tools.size||1);
+}
+function turnContextTokens(nodes, u, calls){
+  const evs=nodes?nodes.flatMap(n=>n.evs):[];
+  // Explicit snapshot wins (preCompact / capture.mjs-attached Claude field).
+  for(let i=evs.length-1;i>=0;i--){
+    const n=Number(evs[i].context_tokens);
+    if(Number.isFinite(n)&&n>0) return { value:n, estimated:false };
+  }
+  if(u&&u.contextTokens!=null){
+    const n=Number(u.contextTokens);
+    if(Number.isFinite(n)&&n>0) return { value:n, estimated:false };
+  }
+  const billed=Number(u&&(u.billedInput!=null ? u.billedInput
+    : ((Number(u.input)||0)+(Number(u.cacheRead)||0)+(Number(u.cacheWrite)||0))))||0;
+  if(!billed) return null;
+  // Cursor hooks sum input across every internal model call — recover the
+  // per-call context snapshot by dividing by the turn's call count.
+  if(calls>1) return { value:Math.round(billed/calls), estimated:true };
+  return { value:billed, estimated:false };
+}
+function turnUsageInfo(nodes, u){
+  if(!nodes&&!u) return null;
+  const calls=Math.max(1, (u&&u.calls)||(nodes?turnApiCallCount(nodes):1));
+  const ctx=turnContextTokens(nodes, u, calls);
+  return { calls, contextTokens:ctx?ctx.value:null, contextEstimated:!!(ctx&&ctx.estimated) };
+}
+function setTokenOpenChrome(el, on){
+  const flow=el&&el.closest(".flow");
+  const sess=el&&el.closest("details.session");
+  if(flow) flow.classList.toggle("token-open", !!on);
+  if(sess) sess.classList.toggle("token-open", !!on);
+}
 function closeAllTokenPops(except){
   document.querySelectorAll(".flow-tokens.open").forEach(el=>{
-    if(el!==except) el.classList.remove("open");
+    if(el!==except){
+      el.classList.remove("open");
+      setTokenOpenChrome(el, false);
+    }
   });
+  if(!except) openTokenFkey=null;
 }
-function usageCardBody(parent, u, title){
-  const total=usageTotal(u);
-  const parts=usageParts(u);
+function usageCardBody(parent, u, title, ctx){
   let headEl=null;
   if(title!==false){
     headEl=elp("tok-pop-head");
     headEl.appendChild(elp("tok-pop-title", title||t("token.title")));
     parent.appendChild(headEl);
   }
-  const sum=elp("tok-pop-sum");
-  const top=parts.reduce((a,b)=>b.value>(a?a.value:0)?b:a, null);
-  sum.appendChild(elp("tok-pop-pct", top ? Math.round(top.value/total*100)+"% "+top.label : t("token.consumed")));
-  sum.appendChild(elp("tok-pop-total", "~"+fmtTok(total)+" Tokens"));
-  parent.appendChild(sum);
+  const total=usageTotal(u);
+  // Headline: API sum (multi-call) vs context snapshot (single window) vs calls.
+  if(ctx){
+    const stats=elp("tok-pop-stats");
+    const addStat=(label,val)=>{
+      const s=elp("tok-pop-stat");
+      s.appendChild(elp("tok-pop-stat-val", val));
+      s.appendChild(elp("tok-pop-stat-label", label));
+      stats.appendChild(s);
+    };
+    addStat(t("token.apiTotal"), fmtTok(total));
+    if(ctx.contextTokens!=null){
+      addStat(t("token.contextTotal"), (ctx.contextEstimated?"~":"")+fmtTok(ctx.contextTokens));
+    }
+    addStat(t("token.calls"), String(ctx.calls||1));
+    parent.appendChild(stats);
+  } else {
+    const sum=elp("tok-pop-sum");
+    sum.appendChild(elp("tok-pop-total", "~"+fmtTok(total)+" Tokens"));
+    parent.appendChild(sum);
+  }
+  const parts=usageParts(u);
   parent.appendChild(usageBar(parts, total, "tok-pop-bar"));
   const list=elp("tok-pop-list");
-  USAGE_CATS.forEach(c=>{
-    const v=Number(u[c.key])||0;
-    if(!v) return;
+  parts.forEach(p=>{
     const row=elp("tok-pop-row");
-    const dot=elp("tok-dot"); dot.style.background=c.color;
-    row.append(dot, elp("tok-pop-label", c.label), elp("tok-pop-val", fmtTok(v)));
+    const dot=elp("tok-dot"); dot.style.background=p.color;
+    row.append(dot, elp("tok-pop-label", p.label), elp("tok-pop-val", fmtTok(p.value)));
     list.appendChild(row);
   });
   parent.appendChild(list);
   return headEl;
 }
-function fillTokensEl(el, u){
+function fillTokensEl(el, u, nodes, fkey){
   el.classList.remove("pending");
   el.innerHTML="";
   if(!u){ el.hidden=true; return; }
   el.hidden=false;
+  const ctx=turnUsageInfo(nodes, u);
   const total=usageTotal(u);
   const parts=usageParts(u);
 
   const chip=elp("flow-tok-chip");
   chip.appendChild(usageBar(parts, total, "flow-tok-minibar"));
+  chip.appendChild(elp("flow-tok-label", t("token.apiTotal")));
   chip.appendChild(elp("flow-tok-total", fmtTok(total)));
   chip.title=t("token.chipTooltip");
 
   const pop=elp("tok-pop");
-  const headEl=usageCardBody(pop, u, t("token.title"));
+  const headEl=usageCardBody(pop, u, t("token.title"), ctx);
   const x=document.createElement("button"); x.type="button"; x.className="tok-pop-close"; x.textContent="×"; x.setAttribute("aria-label",t("token.close"));
   if(headEl) headEl.appendChild(x);
 
-  const toggle=(e)=>{ e.preventDefault(); e.stopPropagation();
+  // Keep chip clickable while the sequence diagram stays collapsed: WebKit
+  // toggles <details> on summary mousedown, so both phases must be cancelled.
+  const stopSummaryToggle=(e)=>{ e.preventDefault(); e.stopPropagation(); };
+  const toggle=(e)=>{
+    stopSummaryToggle(e);
     const willOpen=!el.classList.contains("open");
     closeAllTokenPops(el);
     el.classList.toggle("open", willOpen);
+    setTokenOpenChrome(el, willOpen);
+    openTokenFkey = willOpen ? fkey : null;
   };
+  chip.addEventListener("mousedown", stopSummaryToggle);
   chip.addEventListener("click", toggle);
-  x.addEventListener("click", (e)=>{ e.preventDefault(); e.stopPropagation(); el.classList.remove("open"); });
-  pop.addEventListener("click", (e)=> e.stopPropagation());
+  x.addEventListener("mousedown", stopSummaryToggle);
+  x.addEventListener("click", (e)=>{
+    stopSummaryToggle(e);
+    el.classList.remove("open");
+    setTokenOpenChrome(el, false);
+    openTokenFkey=null;
+  });
+  pop.addEventListener("mousedown", stopSummaryToggle);
+  pop.addEventListener("click", stopSummaryToggle);
 
   el.append(chip, pop);
+  // Re-renders tear down and rebuild the whole tree (see render()); without this,
+  // a popup opened by the user would vanish the moment the next hook event arrives.
+  if(fkey && openTokenFkey===fkey){
+    el.classList.add("open");
+    setTokenOpenChrome(el, true);
+  }
 }
 function loadTranscript(path){
   let ent=txCache.get(path);
@@ -1153,24 +1297,24 @@ function loadTranscript(path){
   txCache.set(path,{promise});
   return promise;
 }
-function flowTokensEl(nodes){
+function flowTokensEl(nodes, fkey){
   const evs=nodes.flatMap(n=>n.evs);
   const el=elp("flow-tokens");
   const direct=usageFromEvs(evs);
-  if(direct){ fillTokensEl(el, direct); return el; }
+  if(direct){ fillTokensEl(el, direct, nodes, fkey); return el; }
   const path=turnTranscriptPath(nodes);
   if(!path) return null;
   const {from,to}=turnTimeRange(nodes);
   const promptId=turnPromptId(nodes);
   const cached=txCache.get(path);
   if(cached&&cached.text!=null){
-    fillTokensEl(el, usageFromTranscriptText(cached.text, from, to, promptId));
+    fillTokensEl(el, usageFromTranscriptText(cached.text, from, to, promptId), nodes, fkey);
     return el;
   }
   el.classList.add("pending");
   const chip=elp("flow-tok-chip"); chip.appendChild(elp("flow-tok-total","…")); el.appendChild(chip);
   loadTranscript(path).then(text=>{
-    fillTokensEl(el, usageFromTranscriptText(text, from, to, promptId));
+    fillTokensEl(el, usageFromTranscriptText(text, from, to, promptId), nodes, fkey);
   }).catch(()=>{ el.hidden=true; });
   return el;
 }
@@ -1615,15 +1759,6 @@ function renderProjChips(){
 }
 function setFollow(v){ follow=v; $("followBtn").classList.toggle("on",v); if(v){ const l=$("list"); l.scrollTop = (view==="tree") ? 0 : l.scrollHeight; } }
 function setFollowUI(v){ follow=v; $("followBtn").classList.toggle("on",v); }
-let everLive = false;
-function setConn(live){
-  const dot=$("dot"), conn=$("conn");
-  if(live) everLive = true;
-  dot.className="dot "+(live?"on":"off");
-  connLabelState = live ? "live" : (everLive ? "offline" : "connecting");
-  conn.textContent = t("conn."+connLabelState);
-}
-
 let raf=0;
 function scheduleRender(){ if(raf) return; raf=requestAnimationFrame(()=>{ raf=0; render(); }); }
 
@@ -1650,8 +1785,6 @@ async function boot(){
   render();
   const list=$("list"); list.scrollTop = (view==="tree") ? 0 : list.scrollHeight;
   const es=new EventSource("/stream");
-  es.onopen=()=>setConn(true);
-  es.onerror=()=>setConn(false);
   es.onmessage=(m)=>{ try{ addEvent(JSON.parse(m.data)); }catch(e){} };
 }
 

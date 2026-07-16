@@ -206,18 +206,28 @@ function usageFromClaudeTranscript(transcriptPath, promptId) {
     }
     const src = matched || turn;
     if (!src || !src.size) return null;
+    // Each assistant row is one API call: sum every call for API totals, but
+    // keep the last call's input+cache as the single context-window snapshot
+    // (attached as context_tokens so the UI doesn't confuse the two).
+    const entries = [...src.values()];
+    const last = entries[entries.length - 1];
     const out = {
       input_tokens: 0,
       output_tokens: 0,
       cache_read_tokens: 0,
       cache_write_tokens: 0,
+      context_tokens: 0,
     };
-    for (const u of src.values()) {
+    for (const u of entries) {
       out.input_tokens += Number(u.input_tokens) || 0;
       out.output_tokens += Number(u.output_tokens) || 0;
       out.cache_read_tokens += Number(u.cache_read_input_tokens || u.cache_read_tokens) || 0;
       out.cache_write_tokens += Number(u.cache_creation_input_tokens || u.cache_write_tokens) || 0;
     }
+    out.context_tokens =
+      (Number(last.input_tokens) || 0) +
+      (Number(last.cache_read_input_tokens || last.cache_read_tokens) || 0) +
+      (Number(last.cache_creation_input_tokens || last.cache_write_tokens) || 0);
     return out;
   } catch {
     return null;
@@ -235,6 +245,7 @@ function attachUsageFromTranscript(ev) {
   ev.output_tokens = usage.output_tokens;
   ev.cache_read_tokens = usage.cache_read_tokens;
   ev.cache_write_tokens = usage.cache_write_tokens;
+  if (usage.context_tokens) ev.context_tokens = usage.context_tokens;
 }
 
 function archiveTranscript(ev) {
