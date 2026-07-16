@@ -81,6 +81,38 @@ final class EventLogReader {
         return out
     }
 
+    /// Cursor stores each child-agent transcript at
+    /// `<parent>/subagents/<child>.jsonl`. Hook events from the child only carry
+    /// the child conversation id, so expose this filesystem relationship to the
+    /// panel without exposing transcript contents.
+    func readSubagentRelationships() -> [[String: String]] {
+        let root = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent(".cursor/projects", isDirectory: true)
+        guard let enumerator = FileManager.default.enumerator(
+            at: root,
+            includingPropertiesForKeys: [.isRegularFileKey],
+            options: [.skipsHiddenFiles]
+        ) else { return [] }
+
+        var relationships: [[String: String]] = []
+        var seen = Set<String>()
+        for case let url as URL in enumerator {
+            guard url.pathExtension.lowercased() == "jsonl" else { continue }
+            let parts = url.pathComponents
+            guard let subagentsIndex = parts.lastIndex(of: "subagents"),
+                  subagentsIndex > 0,
+                  subagentsIndex + 1 < parts.count else { continue }
+            let child = url.deletingPathExtension().lastPathComponent
+            let parent = parts[subagentsIndex - 1]
+            guard !child.isEmpty, !parent.isEmpty else { continue }
+            let key = parent + "\u{0}" + child
+            if seen.insert(key).inserted {
+                relationships.append(["parent": parent, "child": child])
+            }
+        }
+        return relationships
+    }
+
     // MARK: - Watch / tail
 
     func startWatching(onNewLines: @escaping ([String]) -> Void) -> UUID {

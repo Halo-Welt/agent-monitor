@@ -163,6 +163,15 @@ final class ObserverServer {
             return respond(connection, status: 200, type: "application/json; charset=utf-8", body: body)
         }
 
+        if path == "/api/subagents" && method == "GET" {
+            let relationships = EventLogReader.shared.readSubagentRelationships()
+            guard let data = try? JSONSerialization.data(withJSONObject: relationships),
+                  let body = String(data: data, encoding: .utf8) else {
+                return respond(connection, status: 500, type: "text/plain", body: "encode error")
+            }
+            return respond(connection, status: 200, type: "application/json; charset=utf-8", body: body)
+        }
+
         if path == "/api/transcript" && method == "GET" {
             let rel = request.query["file"] ?? ""
             let txDir = EventLogReader.shared.transcriptsDir
