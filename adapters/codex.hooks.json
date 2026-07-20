@@ -1,17 +1,115 @@
 {
-  "_comment": "Template for Codex hooks (~/.codex/hooks.json). Codex's hooks schema changes across versions and strictly validates unknown fields — run the Codex CLI '/hooks' command to confirm the exact shape for your version, then adjust. The invariant is: point a command hook at capture.sh with a 'codex' source tag. Replace the path below with your absolute capture.sh path.",
-  "version": 1,
+  "description": "Send Codex lifecycle events to Agent Monitor.",
   "hooks": {
-    "SessionStart": [{ "command": "~/.cursor/agent-monitor/scripts/capture.sh codex" }],
-    "UserPromptSubmit": [{ "command": "~/.cursor/agent-monitor/scripts/capture.sh codex" }],
-    "PreToolUse": [{ "command": "~/.cursor/agent-monitor/scripts/capture.sh codex" }],
-    "PostToolUse": [{ "command": "~/.cursor/agent-monitor/scripts/capture.sh codex" }],
-    "Stop": [{ "command": "~/.cursor/agent-monitor/scripts/capture.sh codex" }],
-    "PreCompact": [{ "command": "~/.cursor/agent-monitor/scripts/capture.sh codex" }],
-    "PostCompact": [{ "command": "~/.cursor/agent-monitor/scripts/capture.sh codex" }],
-    "SubagentStart": [{ "command": "~/.cursor/agent-monitor/scripts/capture.sh codex" }],
-    "SubagentStop": [{ "command": "~/.cursor/agent-monitor/scripts/capture.sh codex" }],
-    "ToolExecution": [{ "command": "~/.cursor/agent-monitor/scripts/capture.sh codex" }],
-    "TurnMetadata": [{ "command": "~/.cursor/agent-monitor/scripts/capture.sh codex" }]
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.cursor/agent-monitor/scripts/capture.sh codex",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.cursor/agent-monitor/scripts/capture.sh codex",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.cursor/agent-monitor/scripts/capture.sh codex",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "PermissionRequest": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.cursor/agent-monitor/scripts/capture.sh codex",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.cursor/agent-monitor/scripts/capture.sh codex",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.cursor/agent-monitor/scripts/capture.sh codex",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "PostCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.cursor/agent-monitor/scripts/capture.sh codex",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "SubagentStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.cursor/agent-monitor/scripts/capture.sh codex",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.cursor/agent-monitor/scripts/capture.sh codex",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.cursor/agent-monitor/scripts/capture.sh codex",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
   }
 }

@@ -143,6 +143,10 @@ function rotateIfLarge() {
 }
 
 function allow() {
+  // Codex treats exit 0 with no stdout as success. Its hook output schema is
+  // event-specific, so the Cursor/Claude permission response can be rejected
+  // by events such as Stop and SubagentStop.
+  if (process.argv[2] === "codex") return;
   try { process.stdout.write('{"permission":"allow"}'); } catch {}
 }
 

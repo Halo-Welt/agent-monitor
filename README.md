@@ -90,7 +90,7 @@ You can register hooks from the app menu (**Install Hooks…**) or from the comm
 sh install.sh
 ```
 
-This copies capture scripts to a project-independent location (`~/.cursor/agent-monitor`) and registers **Cursor** and **Claude Code** user hooks (merged, not overwritten). Reload the Cursor window after install.
+This copies capture scripts to a project-independent location (`~/.cursor/agent-monitor`) and registers **Cursor**, **Claude Code**, and **Codex** user hooks (merged, not overwritten). Reload Cursor after install. Start a new Codex session; if Codex reports hooks pending review, open `/hooks` and trust Agent Monitor.
 
 Then open the macOS app and choose **Open Panel** (⌘O) to view live events.
 
@@ -99,8 +99,8 @@ Then open the macOS app and choose **Open Panel** (⌘O) to view live events.
 All agents feed one panel, tagged and colored by source. Copy-paste configs in [`docs/multi-agent.md`](docs/multi-agent.md):
 
 - **Cursor** — configured by `install.sh` or the app
-- **Claude Code** — merge [`adapters/claude-code.settings.json`](adapters/claude-code.settings.json) into `~/.claude/settings.json`
-- **Codex** — see [`adapters/codex.hooks.json`](adapters/codex.hooks.json)
+- **Claude Code** — configured by `install.sh` or the app; manual template: [`adapters/claude-code.settings.json`](adapters/claude-code.settings.json)
+- **Codex** — configured by `install.sh` or the app; manual template: [`adapters/codex.hooks.json`](adapters/codex.hooks.json)
 - **Any agent** — point its command hook at `~/.cursor/agent-monitor/scripts/capture.sh <your-source-name>`; add novel event names to `EVENT_ALIASES` in `assets/index.html` if needed.
 
 ## Data & privacy

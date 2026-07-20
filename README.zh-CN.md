@@ -90,7 +90,7 @@ sh scripts/package-dmg.sh   # 需要: brew install create-dmg
 sh install.sh
 ```
 
-这会把采集脚本拷贝到一个与项目无关的位置（`~/.cursor/agent-monitor`），并注册 **Cursor** 与 **Claude Code** 用户 hook（合并，不会覆盖已有配置）。安装后重新加载 Cursor 窗口即可。
+这会把采集脚本拷贝到一个与项目无关的位置（`~/.cursor/agent-monitor`），并注册 **Cursor**、**Claude Code** 与 **Codex** 用户 hook（合并，不会覆盖已有配置）。安装后重新加载 Cursor；Codex 新建会话后若提示 hook 待审核，请打开 `/hooks` 并信任 Agent Monitor。
 
 然后打开 macOS App，选择 **Open Panel**（⌘O）查看实时事件。
 
@@ -99,8 +99,8 @@ sh install.sh
 所有 agent 都会汇入同一个面板，按来源打标签并着色。可直接复制的配置见 [`docs/multi-agent.md`](docs/multi-agent.md)：
 
 - **Cursor** —— 由 `install.sh` 或 App 自动配置
-- **Claude Code** —— 把 [`adapters/claude-code.settings.json`](adapters/claude-code.settings.json) 合并进 `~/.claude/settings.json`
-- **Codex** —— 见 [`adapters/codex.hooks.json`](adapters/codex.hooks.json)
+- **Claude Code** —— 由 `install.sh` 或 App 自动配置；手动模板见 [`adapters/claude-code.settings.json`](adapters/claude-code.settings.json)
+- **Codex** —— 由 `install.sh` 或 App 自动配置；手动模板见 [`adapters/codex.hooks.json`](adapters/codex.hooks.json)
 - **任意 agent** —— 把它的命令 hook 指向 `~/.cursor/agent-monitor/scripts/capture.sh <your-source-name>`；如果它使用了新的事件名，在 `assets/index.html` 的 `EVENT_ALIASES` 中补充即可。
 
 ## 数据与隐私
