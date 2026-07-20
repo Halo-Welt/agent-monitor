@@ -1,0 +1,6 @@
+{"type":"user","promptId":"claude-turn-a","message":{"role":"user","content":"first"}}
+{"type":"assistant","uuid":"row-a1","message":{"id":"message-a1","role":"assistant","usage":{"input_tokens":100,"output_tokens":20,"cache_read_input_tokens":40,"cache_creation_input_tokens":10}}}
+{"type":"assistant","uuid":"row-a1-duplicate","message":{"id":"message-a1","role":"assistant","usage":{"input_tokens":100,"output_tokens":20,"cache_read_input_tokens":40,"cache_creation_input_tokens":10}}}
+{"type":"assistant","uuid":"row-a2","message":{"id":"message-a2","role":"assistant","usage":{"input_tokens":150,"output_tokens":30,"cache_read_input_tokens":60,"cache_creation_input_tokens":5}}}
+{"type":"user","promptId":"claude-turn-b","message":{"role":"user","content":"second"}}
+{"type":"assistant","uuid":"row-b1","message":{"id":"message-b1","role":"assistant","usage":{"input_tokens":300,"output_tokens":50,"cache_read_input_tokens":100,"cache_creation_input_tokens":0}}}

@@ -425,7 +425,7 @@ const I18N = {
     "hint.body":"<b>Multi-engine:</b> tag each agent's hooks with a source (cursor / claude / codex / …) and they all stream here. "+
       "<b>Captured:</b> tool calls, shell, file read+edit, MCP, subagent, prompt, thought, response. "+
       "<b>Not captured</b> (platform limit): the full prompt sent to the LLM, per-token reasoning, or Cursor's System/Rules/Skills context splits. "+
-      "Tokens This Turn is the sum across every model call (incl. sub-calls) made during the turn — a different metric than Cursor's single-call context window snapshot.",
+      "API total comes from Cursor hook fields or local Claude/Codex transcripts and sums every identifiable model call in the turn; it is not a raw API traffic trace.",
     "lane.user":"User", "lane.agent":"Model", "lane.tool":"Tool", "lane.shell":"Shell", "lane.file":"File",
     "lane.mcp":"MCP", "lane.subagent":"Subagent",
     "subagent.activity":"Subagent activity",
@@ -463,7 +463,7 @@ const I18N = {
     "hint.body":"<b>多引擎：</b>给每个 agent 的 hook 打上来源标记（cursor / claude / codex / …），它们都会汇入这里。"+
       "<b>已捕获：</b>工具调用、shell、文件读写、MCP、子 agent、prompt、思考、回复。"+
       "<b>无法捕获</b>（平台限制）：发送给 LLM 的完整 prompt、逐 token 的推理过程、Cursor Context Usage 里的 System/Rules/Skills 细分。"+
-      "本轮 Token 用量展示的是这一轮内所有模型调用（含子调用）的合计，不等于 Cursor 界面里单次调用的上下文窗口快照，两者口径不同。",
+      "API 总量来自 Cursor hook 字段或本地 Claude/Codex transcript，并汇总本轮可识别的模型调用；它不是原始模型 API 流量抓包。",
     "lane.user":"用户", "lane.agent":"模型", "lane.tool":"工具", "lane.shell":"Shell", "lane.file":"文件",
     "lane.mcp":"MCP", "lane.subagent":"子Agent",
     "subagent.activity":"子 Agent 活动",
@@ -640,7 +640,7 @@ function keyOf(ev){ return ev.tool_use_id || ev.subagent_id || (ev._event+"|"+ev
 // suffix on top of the turn's base id. Strip that suffix so all thoughts
 // group back into the turn they actually belong to.
 function turnGenId(ev){
-  const raw = ev.generation_id || ev.prompt_id || "";
+  const raw = ev.generation_id || ev.prompt_id || ev.turn_id || "";
   const m = /^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})-\d+-[0-9a-z]+$/i.exec(raw);
   return m ? m[1] : raw;
 }
@@ -994,13 +994,13 @@ function flowBlock(nodes, key){
    Two different metrics — do not conflate them:
 
    • API total  = tokens processed across every model call in the turn
-     (Cursor hooks already sum this; Claude transcripts need an explicit sum).
+     (Cursor hooks already sum this; Claude/Codex transcripts need a sum).
    • Context    = one context-window snapshot (what Cursor's Context Usage
      card shows). Prefer an explicit context_tokens field; otherwise recover
      ~billedInput/calls from Cursor's multi-call sum.
 
-   Cursor's input_tokens is inclusive of cache_read+cache_write — never add
-   cache on top of it again. */
+   Cursor/Codex input_tokens is inclusive of cache_read+cache_write — never
+   add cache on top of it again. */
 const txCache = new Map(); // path -> {text, promise}
 const USAGE_CATS = [
   { key:"input", color:"#8b939e" },
@@ -1059,8 +1059,10 @@ function usageFromEvs(evs){
       ev.cache_read_tokens!=null || ev.cache_write_tokens!=null ||
       ev.cache_read_input_tokens!=null || ev.cache_creation_input_tokens!=null;
     if(!has) continue;
-    // Cursor events carry cursor_version; treat their input_tokens as inclusive.
-    const preferInclusive = ev.cursor_version!=null || srcOf(ev)==="cursor";
+    // Cursor and Codex report input_tokens inclusive of cached input.
+    const preferInclusive = ev.input_tokens_inclusive!=null
+      ? !!ev.input_tokens_inclusive
+      : (ev.cursor_version!=null || srcOf(ev)==="cursor" || srcOf(ev)==="codex");
     const u=normalizeUsage(
       ev.input_tokens,
       ev.output_tokens,
@@ -1068,6 +1070,7 @@ function usageFromEvs(evs){
       ev.cache_write_tokens??ev.cache_creation_input_tokens,
       preferInclusive
     );
+    if(Number(ev.llm_calls)>0) u.calls=Number(ev.llm_calls);
     const score=usageTotal(u);
     if(score>bestScore){ best=u; bestScore=score; }
   }
@@ -1083,7 +1086,57 @@ function isRealUserPrompt(entry, msg){
   if(isToolResultUser(msg)) return false;
   return true;
 }
-function usageFromTranscriptText(text, fromTs, toTs, promptId){
+function usageFromCodexTranscriptText(text, turnId){
+  const byTurn=new Map();
+  let currentTurn="", lastTurn="";
+  for(const line of String(text).split("\n")){
+    if(!line) continue;
+    let o; try{ o=JSON.parse(line); }catch{ continue; }
+    const payload=o&&o.payload;
+    if(!payload||typeof payload!=="object") continue;
+    if((o.type==="turn_context"||(o.type==="event_msg"&&payload.type==="task_started"))&&payload.turn_id){
+      currentTurn=String(payload.turn_id); lastTurn=currentTurn;
+      if(!byTurn.has(currentTurn)) byTurn.set(currentTurn,[]);
+      continue;
+    }
+    if(o.type==="event_msg"&&payload.type==="token_count"){
+      const usage=payload.info&&payload.info.last_token_usage;
+      if(currentTurn&&usage){
+        if(!byTurn.has(currentTurn)) byTurn.set(currentTurn,[]);
+        byTurn.get(currentTurn).push(usage); lastTurn=currentTurn;
+      }
+      continue;
+    }
+    if(o.type==="event_msg"&&payload.type==="task_complete"){
+      if(payload.turn_id) lastTurn=String(payload.turn_id);
+      currentTurn="";
+    }
+  }
+  const entries=byTurn.get(turnId||lastTurn);
+  if(!entries||!entries.length) return null;
+  const last=entries[entries.length-1];
+  let input=0, output=0, cacheRead=0, cacheWrite=0;
+  for(const usage of entries){
+    const u=normalizeUsage(
+      usage.input_tokens, usage.output_tokens,
+      usage.cached_input_tokens, usage.cache_write_input_tokens,
+      true
+    );
+    input+=u.input; output+=u.output; cacheRead+=u.cacheRead; cacheWrite+=u.cacheWrite;
+  }
+  return {
+    input, output, cacheRead, cacheWrite,
+    billedInput: input+cacheRead+cacheWrite,
+    inclusive:true,
+    contextTokens:Number(last.input_tokens)||0,
+    calls:entries.length,
+  };
+}
+function usageFromTranscriptText(text, fromTs, toTs, promptId, turnId){
+  if(turnId){
+    const codex=usageFromCodexTranscriptText(text,turnId);
+    if(codex) return codex;
+  }
   const byId=new Map();
   let turn=null, matched=null, lastTurn=null;
   for(const line of String(text).split("\n")){
@@ -1142,6 +1195,10 @@ function usageFromTranscriptText(text, fromTs, toTs, promptId){
 }
 function turnPromptId(nodes){
   for(const n of nodes) for(const ev of n.evs){ if(ev.prompt_id) return ev.prompt_id; }
+  return "";
+}
+function turnCodexId(nodes){
+  for(const n of nodes) for(const ev of n.evs){ if(ev.turn_id) return ev.turn_id; }
   return "";
 }
 function turnTimeRange(nodes){
@@ -1328,15 +1385,16 @@ function flowTokensEl(nodes, fkey){
   if(!path) return null;
   const {from,to}=turnTimeRange(nodes);
   const promptId=turnPromptId(nodes);
+  const turnId=turnCodexId(nodes);
   const cached=txCache.get(path);
   if(cached&&cached.text!=null){
-    fillTokensEl(el, usageFromTranscriptText(cached.text, from, to, promptId), nodes, fkey);
+    fillTokensEl(el, usageFromTranscriptText(cached.text, from, to, promptId, turnId), nodes, fkey);
     return el;
   }
   el.classList.add("pending");
   const chip=elp("flow-tok-chip"); chip.appendChild(elp("flow-tok-total","…")); el.appendChild(chip);
   loadTranscript(path).then(text=>{
-    fillTokensEl(el, usageFromTranscriptText(text, from, to, promptId), nodes, fkey);
+    fillTokensEl(el, usageFromTranscriptText(text, from, to, promptId, turnId), nodes, fkey);
   }).catch(()=>{ el.hidden=true; });
   return el;
 }

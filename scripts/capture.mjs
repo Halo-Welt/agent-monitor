@@ -7,6 +7,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
+import { fileURLToPath } from "node:url";
 
 const OBS_DIR = path.join(os.homedir(), ".cursor", "observer");
 const EVENTS_FILE = path.join(OBS_DIR, "events.jsonl");
@@ -89,8 +90,8 @@ function coreContent(ev) {
 // emits the SAME thought under both the suffixed id and the bare base id, so
 // strip the suffix before comparing — see turnGenId() in assets/index.html for
 // the matching client-side logic.
-function baseGenerationId(ev) {
-  const raw = ev.generation_id || ev.prompt_id || "";
+export function baseGenerationId(ev) {
+  const raw = ev.generation_id || ev.prompt_id || ev.turn_id || "";
   const m = /^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})-\d+-[0-9a-z]+$/i.exec(raw);
   return m ? m[1] : raw;
 }
@@ -187,52 +188,118 @@ function isRealUserPrompt(entry, msg) {
 // Claude Code hooks don't include token usage; the transcript does (per assistant
 // message). Aggregate one turn — prefer matching prompt_id, else the latest real
 // user prompt. Dedup by message.id (one API response may span multiple lines).
-function usageFromClaudeTranscript(transcriptPath, promptId) {
+export function usageFromClaudeTranscriptText(text, promptId) {
+  let turn = null;
+  let matched = null;
+  for (const line of String(text).split("\n")) {
+    if (!line) continue;
+    let o;
+    try { o = JSON.parse(line); } catch { continue; }
+    if (o.isSidechain) continue;
+    const msg = o.message;
+    if (o.type === "user" && isRealUserPrompt(o, msg)) {
+      turn = new Map();
+      if (promptId && o.promptId === promptId) matched = turn;
+      continue;
+    }
+    if (turn && o.type === "assistant" && msg && msg.usage) {
+      turn.set(msg.id || o.uuid || ("n" + turn.size), msg.usage);
+    }
+  }
+  const src = matched || turn;
+  if (!src || !src.size) return null;
+  // Each assistant row is one API call: sum every call for API totals, but
+  // keep the last call's input+cache as the single context-window snapshot
+  // (attached as context_tokens so the UI doesn't confuse the two).
+  const entries = [...src.values()];
+  const last = entries[entries.length - 1];
+  const out = {
+    input_tokens: 0,
+    output_tokens: 0,
+    cache_read_tokens: 0,
+    cache_write_tokens: 0,
+    context_tokens: 0,
+    llm_calls: entries.length,
+    input_tokens_inclusive: false,
+  };
+  for (const u of entries) {
+    out.input_tokens += Number(u.input_tokens) || 0;
+    out.output_tokens += Number(u.output_tokens) || 0;
+    out.cache_read_tokens += Number(u.cache_read_input_tokens || u.cache_read_tokens) || 0;
+    out.cache_write_tokens += Number(u.cache_creation_input_tokens || u.cache_write_tokens) || 0;
+  }
+  out.context_tokens =
+    (Number(last.input_tokens) || 0) +
+    (Number(last.cache_read_input_tokens || last.cache_read_tokens) || 0) +
+    (Number(last.cache_creation_input_tokens || last.cache_write_tokens) || 0);
+  return out;
+}
+
+// Codex rollout rows expose one token_count snapshot per model call. Its
+// total_token_usage is cumulative across the whole session, so only sum
+// last_token_usage rows that belong to the requested turn.
+export function usageFromCodexTranscriptText(text, turnId) {
+  const byTurn = new Map();
+  let currentTurn = "";
+  let lastTurn = "";
+  for (const line of String(text).split("\n")) {
+    if (!line) continue;
+    let o;
+    try { o = JSON.parse(line); } catch { continue; }
+    const payload = o && o.payload;
+    if (!payload || typeof payload !== "object") continue;
+    if ((o.type === "turn_context" || (o.type === "event_msg" && payload.type === "task_started")) &&
+        payload.turn_id) {
+      currentTurn = String(payload.turn_id);
+      lastTurn = currentTurn;
+      if (!byTurn.has(currentTurn)) byTurn.set(currentTurn, []);
+      continue;
+    }
+    if (o.type === "event_msg" && payload.type === "token_count") {
+      const usage = payload.info && payload.info.last_token_usage;
+      if (currentTurn && usage) {
+        if (!byTurn.has(currentTurn)) byTurn.set(currentTurn, []);
+        byTurn.get(currentTurn).push(usage);
+        lastTurn = currentTurn;
+      }
+      continue;
+    }
+    if (o.type === "event_msg" && payload.type === "task_complete") {
+      if (payload.turn_id) lastTurn = String(payload.turn_id);
+      currentTurn = "";
+    }
+  }
+  const entries = byTurn.get(turnId || lastTurn);
+  if (!entries || !entries.length) return null;
+  const last = entries[entries.length - 1];
+  const out = {
+    input_tokens: 0,
+    output_tokens: 0,
+    cache_read_tokens: 0,
+    cache_write_tokens: 0,
+    context_tokens: Number(last.input_tokens) || 0,
+    llm_calls: entries.length,
+    input_tokens_inclusive: true,
+  };
+  for (const u of entries) {
+    out.input_tokens += Number(u.input_tokens) || 0;
+    // Codex total_tokens equals input_tokens + output_tokens; reasoning output
+    // is already represented in output_tokens and must not be added again.
+    out.output_tokens += Number(u.output_tokens) || 0;
+    out.cache_read_tokens += Number(u.cached_input_tokens) || 0;
+    out.cache_write_tokens += Number(u.cache_write_input_tokens) || 0;
+  }
+  return out;
+}
+
+function usageFromTranscript(ev, transcriptPath) {
   try {
     if (!transcriptPath || !fs.existsSync(transcriptPath)) return null;
     const text = fs.readFileSync(transcriptPath, "utf8");
-    let turn = null;
-    let matched = null;
-    for (const line of text.split("\n")) {
-      if (!line) continue;
-      let o;
-      try { o = JSON.parse(line); } catch { continue; }
-      if (o.isSidechain) continue;
-      const msg = o.message;
-      if (o.type === "user" && isRealUserPrompt(o, msg)) {
-        turn = new Map();
-        if (promptId && o.promptId === promptId) matched = turn;
-        continue;
-      }
-      if (turn && o.type === "assistant" && msg && msg.usage) {
-        turn.set(msg.id || o.uuid || ("n" + turn.size), msg.usage);
-      }
+    if (ev._source === "codex" || ev.turn_id) {
+      return usageFromCodexTranscriptText(text, ev.turn_id);
     }
-    const src = matched || turn;
-    if (!src || !src.size) return null;
-    // Each assistant row is one API call: sum every call for API totals, but
-    // keep the last call's input+cache as the single context-window snapshot
-    // (attached as context_tokens so the UI doesn't confuse the two).
-    const entries = [...src.values()];
-    const last = entries[entries.length - 1];
-    const out = {
-      input_tokens: 0,
-      output_tokens: 0,
-      cache_read_tokens: 0,
-      cache_write_tokens: 0,
-      context_tokens: 0,
-    };
-    for (const u of entries) {
-      out.input_tokens += Number(u.input_tokens) || 0;
-      out.output_tokens += Number(u.output_tokens) || 0;
-      out.cache_read_tokens += Number(u.cache_read_input_tokens || u.cache_read_tokens) || 0;
-      out.cache_write_tokens += Number(u.cache_creation_input_tokens || u.cache_write_tokens) || 0;
-    }
-    out.context_tokens =
-      (Number(last.input_tokens) || 0) +
-      (Number(last.cache_read_input_tokens || last.cache_read_tokens) || 0) +
-      (Number(last.cache_creation_input_tokens || last.cache_write_tokens) || 0);
-    return out;
+    return usageFromClaudeTranscriptText(text, ev.prompt_id);
   } catch {
     return null;
   }
@@ -243,13 +310,15 @@ function attachUsageFromTranscript(ev) {
   if (!/^stop$/i.test(name) && !/^subagentstop$/i.test(name)) return;
   if (ev.input_tokens != null || ev.output_tokens != null) return; // Cursor already has these
   const tp = ev.transcript_path || ev.agent_transcript_path;
-  const usage = usageFromClaudeTranscript(tp, ev.prompt_id);
+  const usage = usageFromTranscript(ev, tp);
   if (!usage) return;
   ev.input_tokens = usage.input_tokens;
   ev.output_tokens = usage.output_tokens;
   ev.cache_read_tokens = usage.cache_read_tokens;
   ev.cache_write_tokens = usage.cache_write_tokens;
   if (usage.context_tokens) ev.context_tokens = usage.context_tokens;
+  if (usage.llm_calls) ev.llm_calls = usage.llm_calls;
+  ev.input_tokens_inclusive = usage.input_tokens_inclusive;
 }
 
 function archiveTranscript(ev) {
@@ -321,4 +390,7 @@ async function main() {
   process.exit(0);
 }
 
-main().catch(() => { allow(); process.exit(0); });
+const invokedPath = process.argv[1] ? path.resolve(process.argv[1]) : "";
+if (invokedPath === fileURLToPath(import.meta.url)) {
+  main().catch(() => { allow(); process.exit(0); });
+}

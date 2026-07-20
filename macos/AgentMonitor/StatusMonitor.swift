@@ -26,7 +26,8 @@ final class StatusMonitor: ObservableObject {
     private let maxTrackedEvents = 5000
     private let inFlightEvents: Set<String> = [
         "pretooluse", "beforeshellexecution", "beforemcpexecution",
-        "beforereadfile", "subagentstart", "beforetabfileread"
+        "beforereadfile", "subagentstart", "beforetabfileread",
+        "permissionrequest"
     ]
 
     func start(serverReady: Bool) {
@@ -178,11 +179,18 @@ final class StatusMonitor: ObservableObject {
             "afteragentresponse": "response", "assistantmessage": "response",
             "afteragentthought": "thought", "thinking": "thought",
             "pretooluse": "tool", "posttooluse": "tool", "posttoolusefailure": "tool",
+            "posttoolbatch": "tool", "toolexecution": "tool",
+            "permissionrequest": "tool", "permissiondenied": "tool",
             "beforeshellexecution": "shell", "aftershellexecution": "shell",
             "beforemcpexecution": "mcp", "aftermcpexecution": "mcp",
             "beforereadfile": "file", "afterfileedit": "file",
+            "beforetabfileread": "file", "aftertabfileedit": "file",
             "subagentstart": "subagent", "subagentstop": "subagent",
-            "sessionstart": "lifecycle", "sessionend": "lifecycle", "stop": "lifecycle",
+            "sessionstart": "lifecycle", "sessionend": "lifecycle",
+            "stop": "lifecycle", "stopfailure": "lifecycle",
+            "precompact": "lifecycle", "postcompact": "lifecycle",
+            "notification": "lifecycle", "turnmetadata": "lifecycle",
+            "workspaceopen": "lifecycle",
         ]
         var cat = aliases[raw] ?? "unknown"
         if cat == "tool" {

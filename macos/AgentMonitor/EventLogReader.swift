@@ -83,33 +83,58 @@ final class EventLogReader {
 
     /// Cursor stores each child-agent transcript at
     /// `<parent>/subagents/<child>.jsonl`. Hook events from the child only carry
-    /// the child conversation id, so expose this filesystem relationship to the
+    /// the child conversation id. Claude Code and Codex snapshots use
+    /// `observer/transcripts/<parent>/<child>.jsonl`; expose both layouts to the
     /// panel without exposing transcript contents.
     func readSubagentRelationships() -> [[String: String]] {
-        let root = FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent(".cursor/projects", isDirectory: true)
-        guard let enumerator = FileManager.default.enumerator(
-            at: root,
-            includingPropertiesForKeys: [.isRegularFileKey],
-            options: [.skipsHiddenFiles]
-        ) else { return [] }
-
         var relationships: [[String: String]] = []
         var seen = Set<String>()
-        for case let url as URL in enumerator {
-            guard url.pathExtension.lowercased() == "jsonl" else { continue }
-            let parts = url.pathComponents
-            guard let subagentsIndex = parts.lastIndex(of: "subagents"),
-                  subagentsIndex > 0,
-                  subagentsIndex + 1 < parts.count else { continue }
-            let child = url.deletingPathExtension().lastPathComponent
-            let parent = parts[subagentsIndex - 1]
-            guard !child.isEmpty, !parent.isEmpty else { continue }
+        func append(parent: String, child: String) {
+            guard !child.isEmpty, !parent.isEmpty else { return }
             let key = parent + "\u{0}" + child
             if seen.insert(key).inserted {
                 relationships.append(["parent": parent, "child": child])
             }
         }
+
+        let cursorRoot = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent(".cursor/projects", isDirectory: true)
+        if let enumerator = FileManager.default.enumerator(
+            at: cursorRoot,
+            includingPropertiesForKeys: [.isRegularFileKey],
+            options: [.skipsHiddenFiles]
+        ) {
+            for case let url as URL in enumerator {
+                guard url.pathExtension.lowercased() == "jsonl" else { continue }
+                let parts = url.pathComponents
+                guard let subagentsIndex = parts.lastIndex(of: "subagents"),
+                      subagentsIndex > 0,
+                      subagentsIndex + 1 < parts.count else { continue }
+                append(
+                    parent: parts[subagentsIndex - 1],
+                    child: url.deletingPathExtension().lastPathComponent
+                )
+            }
+        }
+
+        if let enumerator = FileManager.default.enumerator(
+            at: transcriptsDir,
+            includingPropertiesForKeys: [.isRegularFileKey],
+            options: [.skipsHiddenFiles]
+        ) {
+            let rootPath = transcriptsDir.standardizedFileURL.path
+            for case let url as URL in enumerator {
+                guard url.pathExtension.lowercased() == "jsonl" else { continue }
+                let parentURL = url.deletingLastPathComponent().standardizedFileURL
+                guard parentURL.path != rootPath,
+                      parentURL.deletingLastPathComponent().path == rootPath else { continue }
+                append(
+                    parent: parentURL.lastPathComponent,
+                    child: url.deletingPathExtension().lastPathComponent
+                )
+            }
+        }
+
         return relationships
     }
 

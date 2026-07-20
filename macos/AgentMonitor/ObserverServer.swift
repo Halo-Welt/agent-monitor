@@ -185,7 +185,7 @@ final class ObserverServer {
             return respond(connection, status: 200, type: "text/plain; charset=utf-8", body: body)
         }
 
-        // Read an absolute transcript JSONL (Claude Code / archived) so the panel
+        // Read an absolute transcript JSONL (Claude Code / Codex / archived) so the panel
         // can reconstruct per-turn token usage that hooks don't include.
         if path == "/api/transcript-raw" && method == "GET" {
             let rawPath = request.query["path"] ?? ""
@@ -228,8 +228,8 @@ final class ObserverServer {
         respond(connection, status: 404, type: "text/plain", body: "not found")
     }
 
-    /// Absolute path must stay under the user's home and look like a Claude /
-    /// observer transcript (.jsonl). Rejects path traversal.
+    /// Absolute path must stay in a known local transcript directory and end in
+    /// .jsonl. Standardizing before the prefix check rejects path traversal.
     private static func allowedTranscriptURL(_ raw: String) -> URL? {
         guard !raw.isEmpty else { return nil }
         let home = FileManager.default.homeDirectoryForCurrentUser.standardizedFileURL
@@ -237,7 +237,12 @@ final class ObserverServer {
         let path = url.path
         guard path.hasPrefix(home.path + "/") else { return nil }
         guard path.lowercased().hasSuffix(".jsonl") else { return nil }
-        let allowed = path.contains("/.claude/") || path.contains("/.cursor/observer/transcripts/")
+        let roots = [
+            home.appendingPathComponent(".claude", isDirectory: true),
+            home.appendingPathComponent(".codex/sessions", isDirectory: true),
+            home.appendingPathComponent(".cursor/observer/transcripts", isDirectory: true),
+        ].map { $0.standardizedFileURL.path + "/" }
+        let allowed = roots.contains { path.hasPrefix($0) }
         guard allowed else { return nil }
         return url
     }

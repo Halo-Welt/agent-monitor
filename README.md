@@ -24,13 +24,15 @@ When a session or subagent ends, a transcript snapshot is archived on disk.
 
 ## What it cannot capture (platform limits)
 
-No agent hook exposes these — no observer can:
+No agent hook or local transcript fully exposes:
 
 - The fully assembled prompt sent to the LLM (system prompt, rules, serialized context)
 - Per-token reasoning or raw model API request/response
-- Exact per-call token usage
+- Model usage that the agent did not record in a hook or transcript
 
 In short: the **conversation layer** (what the agent did) is captured almost completely; the **model layer** (what the model saw token-by-token) is not.
+
+The panel's **API total** uses data exposed by each agent: Cursor hook fields, or per-turn aggregation from local Claude Code and Codex transcripts. **Context total** is the final call's context snapshot, and **LLM calls** is the number of identifiable model calls in the turn. These are local usage records, not an independent trace of raw model API traffic; pricing and cost estimates are not included.
 
 ## Architecture
 

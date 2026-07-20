@@ -1,0 +1,23 @@
+[
+  {
+    "name": "cursor",
+    "event": {
+      "generation_id": "11111111-1111-1111-1111-111111111111-2-chunk"
+    },
+    "turn": "11111111-1111-1111-1111-111111111111"
+  },
+  {
+    "name": "claude",
+    "event": {
+      "prompt_id": "claude-prompt-1"
+    },
+    "turn": "claude-prompt-1"
+  },
+  {
+    "name": "codex",
+    "event": {
+      "turn_id": "codex-turn-1"
+    },
+    "turn": "codex-turn-1"
+  }
+]
